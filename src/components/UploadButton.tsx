@@ -1,42 +1,66 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase'; // 아까 만든 설정 파일 가져오기
 
 const UploadButton = () => {
-  // 숨겨진 파일 입력창을 가리킬 '리모컨'입니다.
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false); // 업로드 중인지 상태 확인
 
   const handleButtonClick = () => {
-    // 우리가 만든 예쁜 버튼을 누르면, 숨겨진 진짜 버튼이 대신 눌립니다.
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      console.log("선택된 파일:", file.name);
-      alert(`"${file.name}" 선택 완료! 이제 이 사진을 서버에 올릴 준비를 할게요.`);
+    if (!file) return;
+
+    try {
+      setUploading(true); // 로딩 시작!
+
+      // 1. 파일 이름 중복 방지를 위해 유니크한 이름 만들기 (예: 1712345678-photo.jpg)
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `user-uploads/${fileName}`;
+
+      // 2. Supabase Storage에 업로드 ('photos'는 유저님이 만든 버킷 이름)
+      const { data, error } = await supabase.storage
+        .from('photos') 
+        .upload(filePath, file);
+
+      if (error) {
+        throw error;
+      }
+
+      alert('크~ 오늘 인증 성공! 사진이 잘 올라갔어요. 🚀');
+      console.log('업로드 성공:', data);
+
+    } catch (error: any) {
+      alert('에구, 업로드 중에 문제가 생겼어요: ' + error.message);
+    } finally {
+      setUploading(false); // 로딩 끝!
     }
   };
 
   return (
     <div className="py-10">
-      {/* 1. 실제 파일 선택창 (못생겨서 숨겨둠) */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
         accept="image/*"
-        capture="environment" // 이렇게 하면 폰에서 카메라 켜진다고?
+        disabled={uploading} // 업로드 중에는 클릭 못하게!
       />
 
-      {/* 2. 유저가 보게 될 예쁜 버튼 */}
       <button 
         onClick={handleButtonClick}
-        className="w-full bg-black text-white text-xl font-bold py-5 rounded-2xl transition-transform active:scale-95 shadow-xl"
+        disabled={uploading}
+        className={`w-full text-white text-xl font-bold py-5 rounded-2xl transition-transform active:scale-95 shadow-xl ${
+          uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-black'
+        }`}
       >
-        📷 인증샷 올리기
+        {uploading ? '⏳ 업로드 중...' : '📷 인증샷 올리기'}
       </button>
     </div>
   );
