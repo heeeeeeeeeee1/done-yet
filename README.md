@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 오늘 했어?(Done yet?)
+> **“오늘 할 거 했어?”**
 
-## Getting Started
+오늘 목표한 일을 기록하고  
+**완료 여부만 간단하게 체크하는 간단한 목표 관리 서비스**
 
-First, run the development server:
+뇌 빼고 취미로 만드는 사이드 프로젝트입니다.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+</br>
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🧠 Development Philosophy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> Human idea, AI implementation.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Built with **Next.js, Supabase, Tailwind, and a concerning amount of AI assistance.**
 
-## Learn More
+</br>
 
-To learn more about Next.js, take a look at the following resources:
+## ✨ Features
+- 오늘 목표 등록
+- 목표 완료 체크
+- 개인 목표 히스토리 확인
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 👥 Group Goals
+혼자서 하는 목표 관리가 아니라  
+**그룹 단위 목표 관리**도 가능합니다.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 그룹 생성 / 참여
+- 목표 미달성 시 패널티 설정
+- 서로의 진행 상황 확인
+- 동기부여를 위한 그룹 활동
 
-## Deploy on Vercel
+혼자 하면 포기하기 쉽지만  
+**같이 하면 지속하기 쉬운 목표 관리**를 지향합니다.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+</br>
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠 Tech Stack
+| Category | Tech |
+|---|---|
+| Framework | Next.js |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Backend | Supabase |
+| Database | Supabase Postgres |
+| Auth | Supabase Auth |
