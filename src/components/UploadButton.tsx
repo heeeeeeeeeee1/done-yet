@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 // 1. 경로를 server가 아닌 supabase/client로 수정!
-import { createClient } from '@/lib/client'; 
+import { createClient } from '@/lib/supabase/client'; 
 
 const UploadButton = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
