@@ -57,7 +57,7 @@ const UploadButton = () => {
       <button 
         onClick={handleButtonClick}
         disabled={uploading}
-        className={`w-full text-white text-xl font-bold py-5 rounded-2xl transition-transform active:scale-95 shadow-xl ${
+        className={`w-full text-white text-xl font-bold py-5 rounded-2xl cursor-pointer transition-transform active:scale-95 shadow-xl ${
           uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-black'
         }`}
       >

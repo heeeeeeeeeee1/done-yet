@@ -1,36 +1,34 @@
+// src/app/page.tsx
 import KakaoLogin from '@/components/LoginButton';
 import MainHeader from '@/components/MainHeader';
 import UploadButton from '@/components/UploadButton';
-import { createClient } from '@/lib/supabase/server'; // 유저님이 만든 server.ts
+import Footer from '@/components/Footer';
+import { createClient } from '@/lib/supabase/server';
 
-const Home = async () => {
+export default async function Home() {
   const supabase = await createClient();
-  
-  // 현재 로그인한 유저 세션 정보를 가져옵니다.
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white p-6">
-      <div className="w-full max-w-md space-y-8 text-center">
+    <div className="flex flex-col min-h-screen">
+      {/* min-h-screen을 주어 콘텐츠가 화면 중앙에 위치하게 함 */}
+      <main className="flex-1 flex flex-col items-center justify-center p-6 space-y-10">
         <MainHeader />
         
-        {/* 로그인 여부에 따른 조건부 렌더링 */}
         {user ? (
-          <div className="space-y-4">
-            <p className="font-medium text-lg">
-              {user.user_metadata?.full_name || '유저'}님, 반가워요! 👋
-            </p>
-            <UploadButton /> {/* 로그인 되었을 때만 노출 */}
+          <div className="w-full space-y-6 text-center">
+            <h2 className="text-xl font-bold">오늘의 인증을 완료하세요! 🔥</h2>
+            <UploadButton />
           </div>
         ) : (
-          <div className="space-y-4">
-            <p className="text-gray-500 text-sm">인증을 하려면 로그인이 필요해요.</p>
-            <KakaoLogin />   {/* 로그인 안 되었을 때만 노출 */}
+          <div className="w-full space-y-10 text-center">
+            <div className="text-6xl animate-bounce">🤔</div>
+            <KakaoLogin />
           </div>
         )}
-      </div>
-    </main>
-  );
-};
+      </main>
 
-export default Home;
+      {user && <Footer />}
+    </div>
+  );
+}

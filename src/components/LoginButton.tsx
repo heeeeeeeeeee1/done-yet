@@ -19,7 +19,7 @@ export default function KakaoLogin() {
   };
 
   return (
-    <button onClick={handleLogin} className="p-3 bg-yellow-400 rounded-lg">
+    <button onClick={handleLogin} className="p-3 bg-yellow-400 rounded-lg cursor-pointer hover:opacity-80">
       카카오로 1초 만에 시작하기
     </button>
   );
