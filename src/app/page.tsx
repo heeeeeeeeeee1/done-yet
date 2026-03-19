@@ -1,6 +1,6 @@
 // src/app/page.tsx
 import KakaoLogin from '@/components/LoginButton';
-import MainHeader from '@/components/MainHeader';
+import MainHeader from '@/components/Main';
 import UploadButton from '@/components/UploadButton';
 import Footer from '@/components/Footer';
 import { createClient } from '@/lib/supabase/server';

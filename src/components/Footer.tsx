@@ -3,6 +3,7 @@
 
 import { Home, PlusSquare, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { LogoutButton } from './LogoutButton';
 
 export default function Footer() {
   const router = useRouter();
@@ -34,6 +35,8 @@ export default function Footer() {
           <User size={24} />
           <span className="text-[10px] mt-1">마이</span>
         </button>
+
+        <LogoutButton />
       </nav>
     </footer>
   );
