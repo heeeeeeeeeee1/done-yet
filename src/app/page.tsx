@@ -37,7 +37,6 @@ return (
           </div>
         )}
       </main>
-      {user && <Footer />}
     </div>
   );
 }
