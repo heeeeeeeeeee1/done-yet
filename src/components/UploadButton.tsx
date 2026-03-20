@@ -1,70 +1,100 @@
 'use client';
 
-import { useRef, useState } from 'react';
-// 1. 경로를 server가 아닌 supabase/client로 수정!
-import { createClient } from '@/lib/supabase/client'; 
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
-const UploadButton = () => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  
-  // 2. 여기서 리모컨을 직접 생성해줍니다 (화살표 함수 호출)
-  const supabase = createClient(); 
+export default function UploadButton() {
+  const [file, setFile] = useState<File | null>(null);
+  const [challenges, setChallenges] = useState<any[]>([]);
+  const [selectedChallenge, setSelectedChallenge] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const supabase = createClient();
 
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
+  // 1. 내가 참여 중인 활성 챌린지 목록 불러오기
+  useEffect(() => {
+    const fetchMyChallenges = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+      const { data } = await supabase
+        .from('group_members')
+        .select(`
+          groups (
+            id,
+            challenges (id, title)
+          )
+        `)
+        .eq('user_id', user.id);
+      
+      // 데이터 플래튼(flatten) 작업
+      const list = data?.flatMap(item => (item.groups as any).challenges) || [];
+      setChallenges(list);
+    };
+    fetchMyChallenges();
+  }, []);
+
+  const handleUpload = async () => {
+    if (!file || !selectedChallenge) return alert('사진과 챌린지를 선택해주세요!');
+    setIsUploading(true);
 
     try {
-      setUploading(true);
-
+      const { data: { user } } = await supabase.auth.getUser();
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `user-uploads/${fileName}`;
+      const fileName = `${user?.id}-${Math.random()}.${fileExt}`;
+      const filePath = `verifications/${fileName}`;
 
-      // 이제 여기서 supabase를 마음껏 쓸 수 있습니다!
-      const { data, error } = await supabase.storage
-        .from('photos') 
+      // 2. Storage에 이미지 업로드
+      const { error: uploadError } = await supabase.storage
+        .from('images')
         .upload(filePath, file);
 
-      if (error) throw error;
+      if (uploadError) throw uploadError;
 
-      alert('크~ 오늘 인증 성공! 사진이 잘 올라갔어요. 🚀');
-      console.log('업로드 성공:', data);
+      // 3. Verifications 테이블에 기록 저장
+      const { error: dbError } = await supabase.from('verifications').insert({
+        user_id: user?.id,
+        challenge_id: selectedChallenge,
+        image_url: filePath,
+      });
 
-    } catch (error: any) {
-      alert('에구, 업로드 중에 문제가 생겼어요: ' + error.message);
+      if (dbError) throw dbError;
+      alert('인증 완료! 🔥');
+      window.location.reload(); // 성공 시 새로고침
+    } catch (error) {
+      console.error(error);
+      alert('업로드 실패');
     } finally {
-      setUploading(false);
+      setIsUploading(false);
     }
   };
 
   return (
-    <div className="py-10">
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-        accept="image/*"
-        disabled={uploading}
+    <div className="flex flex-col gap-4 p-4 border rounded-3xl bg-gray-50">
+      <select 
+        value={selectedChallenge} 
+        onChange={(e) => setSelectedChallenge(e.target.value)}
+        className="p-3 rounded-xl border bg-white font-bold text-sm"
+      >
+        <option value="">어떤 숙제인가요?</option>
+        {challenges.map(c => (
+          <option key={c.id} value={c.id}>{c.title}</option>
+        ))}
+      </select>
+
+      <input 
+        type="file" 
+        accept="image/*" 
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
       />
 
       <button 
-        onClick={handleButtonClick}
-        disabled={uploading}
-        className={`w-full text-white text-xl font-bold py-5 rounded-2xl cursor-pointer transition-transform active:scale-95 shadow-xl ${
-          uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-black'
-        }`}
+        onClick={handleUpload}
+        disabled={isUploading}
+        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-all disabled:bg-gray-400"
       >
-        {uploading ? '⏳ 업로드 중...' : '📷 인증샷 올리기'}
+        {isUploading ? '인증 중...' : '지금 바로 인증샷 올리기 📸'}
       </button>
     </div>
   );
-};
-
-export default UploadButton;
+}

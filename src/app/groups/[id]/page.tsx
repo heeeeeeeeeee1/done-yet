@@ -7,18 +7,30 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  // 1. 그룹 정보와 해당 그룹의 챌린지 목록을 동시에 가져옵니다.
-  const [groupRes, challengesRes] = await Promise.all([
+  const [groupRes, challengesRes, verificationsRes] = await Promise.all([
     supabase.from('groups').select('*').eq('id', id).single(),
-    supabase.from('challenges').select('*').eq('group_id', id).order('created_at', { ascending: false })
+    supabase.from('challenges').select('*').eq('group_id', id).order('created_at', { ascending: false }),
+    // 해당 그룹에 속한 모든 챌린지의 인증샷을 가져옵니다.
+    supabase
+      .from('verifications')
+      .select(`
+        *,
+        profiles (full_name),
+        challenges (title)
+      `)
+      .in('challenge_id', (await supabase.from('challenges').select('id').eq('group_id', id)).data?.map(c => c.id) || [])
+      .order('created_at', { ascending: false })
   ]);
 
   if (groupRes.error || !groupRes.data) return notFound();
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white pb-20">
-      {/* 2. 불러온 챌린지 데이터를 클라이언트 컴포넌트에 넘겨줍니다. */}
-      <GroupDetailClient group={groupRes.data} challenges={challengesRes.data || []} />
+      <GroupDetailClient 
+        group={groupRes.data} 
+        challenges={challengesRes.data || []} 
+        verifications={verificationsRes.data || []} // 인증 데이터 전달
+      />
     </div>
   );
 }
