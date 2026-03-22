@@ -42,7 +42,7 @@ export default function GroupDetailClient({
         </div>
       </div>
 
-      {/* 3번 기능: 팀 현황 달력 섹션 */}
+      {/* 팀 현황 달력 섹션 */}
       <section className="px-6 mb-10">
         <div className="flex justify-between items-end mb-4 px-1">
           <h3 className="font-bold text-gray-800">이번 주 팀 도전 현황</h3>
@@ -98,18 +98,29 @@ export default function GroupDetailClient({
           {verifications.length > 0 ? (
             verifications.map((v) => (
               <div key={v.id} className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                {/* 이미지가 있다면 여기에 배치 (현재는 아이콘 대체) */}
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex-shrink-0 flex items-center justify-center text-xl">
-                  📸
+                {/* 1. 이미지 표시 (버킷 이름 'photos' 확인) */}
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex-shrink-0 overflow-hidden border border-blue-50">
+                  <img 
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${v.image_url}`}
+                    className="w-full h-full object-cover"
+                    alt="인증"
+                    onError={(e) => {
+                    // 이미지 로드 실패 시 콘솔에 실제 호출된 URL을 찍어보세요 (디버깅용)
+                    console.log("이미지 로드 실패 URL:", (e.target as HTMLImageElement).src);
+                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/４00?text=📸'; }}
+                  />
                 </div>
+                
+                {/* 2. 서버에서 가져온 데이터(이름, 도전명) 표시 */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-blue-600 font-black mb-0.5 truncate">
-                    {v.challenges?.title || '도전 인증'}
+                  <p className="text-[10px] text-blue-600 font-black mb-0.5 truncate uppercase">
+                    #{v.challenges?.title || '도전 완료'}
                   </p>
                   <p className="text-sm font-bold text-gray-800 truncate">
-                    {v.profiles?.full_name || '익명의 멤버'}
+                    {v.users?.nickname || '익명의 멤버'}
                   </p>
                 </div>
+                
                 <span className="text-[10px] font-bold text-gray-300">
                   {v.proof_date}
                 </span>

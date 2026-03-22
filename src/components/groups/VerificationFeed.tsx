@@ -22,7 +22,7 @@ export default function VerificationFeed({ verifications }: { verifications: any
           
           <div className="aspect-square rounded-2xl bg-gray-100 overflow-hidden shadow-inner">
             <img 
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${v.image_url}`}
+              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${v.image_url}`}
               className="w-full h-full object-cover"
               alt="인증샷"
             />

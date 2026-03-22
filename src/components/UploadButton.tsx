@@ -1,7 +1,7 @@
-// src/components/UploadButton.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // 반드시 'next/navigation'에서 가져와야 합니다.
 import { createClient } from '@/lib/supabase/client';
 
 export default function UploadButton() {
@@ -9,50 +9,48 @@ export default function UploadButton() {
   const [challenges, setChallenges] = useState<any[]>([]);
   const [selectedChallenge, setSelectedChallenge] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  
   const supabase = createClient();
+  const router = useRouter();
 
   // 1. 내가 참여 중인 그룹의 모든 도전 목록 불러오기 (그룹명 포함)
-useEffect(() => {
-  const fetchMyChallenges = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  useEffect(() => {
+    const fetchMyChallenges = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // 쿼리는 그대로 유지하되, 리턴 타입을 명확히 확인
-    const { data, error } = await supabase
-      .from('group_members')
-      .select(`
-        groups (
-          id,
-          name,
-          challenges (id, title)
-        )
-      `)
-      .eq('user_id', user.id);
-    
-    if (error) {
-      console.error('도전 목록 불러오기 실패:', error);
-      return;
-    }
-
-    // 데이터 매핑 로직을 더 안전하게 수정
-    const list = data?.flatMap((item: any) => {
-      // Supabase 쿼리 결과에 따라 item.groups가 객체일 수도, 배열일 수도 있습니다.
-      const group = Array.isArray(item.groups) ? item.groups[0] : item.groups;
+      const { data, error } = await supabase
+        .from('group_members')
+        .select(`
+          groups (
+            id,
+            name,
+            challenges (id, title)
+          )
+        `)
+        .eq('user_id', user.id);
       
-      if (!group || !group.challenges) return [];
-      
-      return group.challenges.map((c: any) => ({
-        id: c.id,
-        title: c.title,
-        groupName: group.name || '이름 없음' // 이름이 없을 경우 대비
-      }));
-    }) || [];
+      if (error) {
+        console.error('도전 목록 불러오기 실패:', error);
+        return;
+      }
 
-    setChallenges(list);
-  };
+      const list = data?.flatMap((item: any) => {
+        const group = Array.isArray(item.groups) ? item.groups[0] : item.groups;
+        if (!group || !group.challenges) return [];
+        
+        return group.challenges.map((c: any) => ({
+          id: c.id,
+          title: c.title,
+          groupName: group.name || '이름 없음'
+        }));
+      }) || [];
 
-  fetchMyChallenges();
-}, [supabase]);
+      setChallenges(list);
+    };
+
+    fetchMyChallenges();
+  }, [supabase]);
 
   const handleUpload = async () => {
     if (!file || !selectedChallenge) return alert('사진과 도전을 선택해주세요!');
@@ -74,18 +72,24 @@ useEffect(() => {
 
       if (uploadError) throw uploadError;
 
-      // 3. Verifications 테이블에 기록 저장 (challenge_id 사용)
+      // 3. Verifications 테이블에 기록 저장
       const { error: dbError } = await supabase.from('verifications').insert({
         user_id: user.id,
         challenge_id: selectedChallenge,
         image_url: filePath,
-        proof_date: new Date().toISOString().split('T')[0], // 오늘 날짜
+        proof_date: new Date().toISOString().split('T')[0],
       });
 
       if (dbError) throw dbError;
 
       alert('오늘의 도전 성공! 🔥');
-      window.location.reload(); 
+      
+      // 상태 초기화
+      setFile(null);
+      setSelectedChallenge('');
+      
+      // 서버 데이터를 새로고침하여 그룹 페이지의 달력과 피드를 업데이트합니다.
+      router.refresh(); 
 
     } catch (error: any) {
       console.error('업로드 실패:', error);

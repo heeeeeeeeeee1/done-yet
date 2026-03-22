@@ -17,7 +17,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
     supabase.from('challenges').select('*').eq('group_id', id).order('created_at', { ascending: false }),
     supabase
       .from('verifications')
-      .select(`*, profiles (full_name), challenges (title)`)
+      .select(`*, users (nickname), challenges (title)`)
       .in('challenge_id', ids)
       .order('created_at', { ascending: false }),
     // 멤버 수 추가
