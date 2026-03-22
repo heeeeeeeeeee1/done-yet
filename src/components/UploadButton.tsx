@@ -26,43 +26,55 @@ export default function UploadButton() {
         `)
         .eq('user_id', user.id);
       
-      // 데이터 플래튼(flatten) 작업
       const list = data?.flatMap(item => (item.groups as any).challenges) || [];
       setChallenges(list);
     };
     fetchMyChallenges();
-  }, []);
+  }, [supabase]);
 
   const handleUpload = async () => {
     if (!file || !selectedChallenge) return alert('사진과 챌린지를 선택해주세요!');
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert('로그인이 필요합니다!');
+
     setIsUploading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}-${Math.random()}.${fileExt}`;
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
       const filePath = `verifications/${fileName}`;
 
       // 2. Storage에 이미지 업로드
       const { error: uploadError } = await supabase.storage
-        .from('images')
+        .from('photos')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       // 3. Verifications 테이블에 기록 저장
       const { error: dbError } = await supabase.from('verifications').insert({
-        user_id: user?.id,
+        user_id: user.id,
         challenge_id: selectedChallenge,
         image_url: filePath,
+        proof_date: new Date().toISOString().split('T')[0], // 오늘 날짜 (YYYY-MM-DD)
       });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('DB 저장 실패 상세 정보:', {
+          message: dbError.message,
+          details: dbError.details,
+          hint: dbError.hint
+        });
+        throw dbError;
+      }
+
       alert('인증 완료! 🔥');
-      window.location.reload(); // 성공 시 새로고침
-    } catch (error) {
-      console.error(error);
-      alert('업로드 실패');
+      window.location.reload(); 
+
+    } catch (error: any) {
+      console.error('업로드 과정 중 에러:', error);
+      alert(`업로드 실패: ${error.message || '알 수 없는 오류'}`);
     } finally {
       setIsUploading(false);
     }

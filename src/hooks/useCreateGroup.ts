@@ -7,7 +7,7 @@ export function useCreateGroup() {
   const router = useRouter();
   const supabase = createClient();
   const [groupName, setGroupName] = useState('');
-  const [goal, setGoal] = useState(''); // challenges 테이블의 title로 활용 가능
+  const [goal, setGoal] = useState(''); // 입력받은 목표 제목
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,27 +49,17 @@ export function useCreateGroup() {
 
       if (memberError) throw memberError;
 
-      // 3. (선택사항) 입력한 '목표'를 challenges 테이블에 첫 번째 챌린지로 등록
-      // 이 단계는 나중에 챌린지 관리 기능을 만들 때 분리해도 됩니다.
-      const { error: challengeError } = await supabase
-        .from('challenges')
-        .insert([
-          {
-            group_id: groupData.id,
-            title: goal,
-            weekly_target: 7, // 기본값 예시
-            start_date: new Date().toISOString().split('T')[0]
-          }
-        ]);
-
-      if (challengeError) throw challengeError;
-
-      alert('그룹과 첫 챌린지가 생성되었습니다! 🎉');
-      router.push(`/groups/${groupData.id}`); 
+      // ✅ 핵심 수정: 여기서 7회로 자동 저장하던 로직을 완전히 제거했습니다.
+      // 대신 사용자를 '주간 목표 설정(슬라이더)' 페이지로 보냅니다.
+      
+      alert('그룹이 생성되었습니다! 이제 목표 횟수를 정해볼까요? 🥊');
+      
+      // ✅ goal(제목)을 쿼리 스트링으로 들고 이동합니다.
+      router.push(`/groups/${groupData.id}/challenges/new?title=${encodeURIComponent(goal)}`); 
       
     } catch (error: any) {
       console.error('Error:', error.message);
-      alert('생성 중 오류가 발생했습니다.');
+      alert('그룹 생성 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }

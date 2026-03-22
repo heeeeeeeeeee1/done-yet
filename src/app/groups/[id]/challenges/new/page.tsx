@@ -1,3 +1,4 @@
+// src/app/groups/[id]/challenges/new/page.tsx
 'use client';
 
 import { useState, use } from 'react'; // 1. use 추가
