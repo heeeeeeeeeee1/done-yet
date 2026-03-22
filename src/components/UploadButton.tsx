@@ -40,7 +40,7 @@ export default function UploadButton() {
           id: c.id,
           title: c.title,
           groupName: group.name || '이름 없음',
-          groupId: group.id // ✅ 이동을 위해 그룹 ID 저장
+          groupId: group.id // 이동을 위해 그룹 ID 저장
         }));
       }) || [];
 
@@ -64,7 +64,8 @@ export default function UploadButton() {
       const targetGroupId = targetChallenge?.groupId;
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      // 파일명에 시간 추가하여 중복 방지
+      const fileName = `${user.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
       const filePath = `verifications/${fileName}`;
 
       // 1. Storage 업로드
@@ -74,11 +75,12 @@ export default function UploadButton() {
 
       if (uploadError) throw uploadError;
 
-      // 2. DB 저장
+      // 2. DB 저장(하루에 여러번 insert 가능)
       const { error: dbError } = await supabase.from('verifications').insert({
         user_id: user.id,
         challenge_id: selectedChallenge,
         image_url: filePath,
+        // ISO 형식이 아닌 로컬 날짜 기준으로 저장하거나 DB 설정을 확인
         proof_date: new Date().toISOString().split('T')[0],
       });
 

@@ -14,7 +14,7 @@ export default function VerificationFeed({ verifications }: { verifications: any
       {verifications.map((v) => (
         <div key={v.id} className="flex flex-col gap-3 border-b pb-6 last:border-0">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-bold">👤 {v.profiles?.full_name || '멤버'}</span>
+            <span className="font-bold">👤 {v.users?.nickname || '멤버'}</span>
             <span className="text-gray-400 text-[10px]">
               {new Date(v.created_at).toLocaleDateString()}
             </span>
