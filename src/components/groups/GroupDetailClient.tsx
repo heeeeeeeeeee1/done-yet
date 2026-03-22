@@ -1,6 +1,8 @@
 // src/components/groups/GroupDetailClient.tsx
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import BackButton from '@/components/common/BackButton';
 import TeamCalendar from '@/components/calendar/TeamCalendar';
@@ -10,14 +12,90 @@ interface GroupDetailProps {
   challenges: any[];
   verifications: any[];
   memberCount: number;
+  isOwner: boolean;
+  currentUserId?: string;
 }
 
 export default function GroupDetailClient({ 
   group, 
   challenges, 
   verifications, 
-  memberCount 
+  memberCount,
+  isOwner,
+  currentUserId
 }: GroupDetailProps) {
+  const router = useRouter();
+  const supabase = createClient();
+
+  // 1. 그룹 정보 수정 (이름)
+  const handleUpdateGroup = async () => {
+    const newName = prompt("새로운 그룹 이름을 입력하세요", group.name);
+    if (!newName || newName === group.name) return;
+
+    const { error } = await supabase
+      .from('groups')
+      .update({ name: newName })
+      .eq('id', group.id);
+
+    if (error) {
+      alert("그룹 수정에 실패했습니다.");
+    } else {
+      alert("그룹 이름이 변경되었습니다.");
+      router.refresh();
+    }
+  };
+
+  // 2. 그룹 삭제
+  const handleDeleteGroup = async () => {
+    if (!confirm("정말로 그룹을 삭제하시겠습니까? 모든 챌린지와 인증 데이터가 영구 삭제됩니다.")) return;
+    
+    const { error } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', group.id);
+
+    if (error) {
+      alert("그룹 삭제에 실패했습니다.");
+    } else {
+      alert("그룹이 삭제되었습니다.");
+      router.push('/profile'); // 삭제 후 리디렉션할 페이지 (예: 그룹 목록 또는 프로필)
+    }
+  };
+
+  // 3. 그룹 탈퇴
+  const handleLeaveGroup = async () => {
+    if (!confirm("그룹에서 탈퇴하시겠습니까?")) return;
+    
+    const { error } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', group.id)
+      .eq('user_id', currentUserId);
+
+    if (error) {
+      alert("탈퇴 처리 중 오류가 발생했습니다.");
+    } else {
+      alert("그룹에서 탈퇴되었습니다.");
+      router.push('/groups');
+    }
+  };
+
+  // 4. 목표(챌린지) 삭제
+  const handleDeleteChallenge = async (challengeId: string) => {
+    if (!confirm("이 목표를 삭제하시겠습니까? 관련 인증샷 데이터도 함께 사라집니다.")) return;
+    
+    const { error } = await supabase
+      .from('challenges')
+      .delete()
+      .eq('id', challengeId);
+
+    if (error) {
+      alert(`삭제실패: ${error.message}`);
+    } else {
+      router.refresh();
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-white">
       {/* 상단 헤더 및 그룹 정보 */}
@@ -32,9 +110,17 @@ export default function GroupDetailClient({
             <h2 className="text-3xl font-black text-gray-900 leading-tight">
               {group.name}
             </h2>
-            <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full uppercase">
-              Active
-            </span>
+            <div className="flex gap-2">
+              {/* 권한에 따른 관리 버튼 노출 */}
+              {isOwner ? (
+                <>
+                  <button onClick={handleUpdateGroup} className="text-[10px] font-bold text-gray-400 border border-gray-100 px-2 py-1 rounded-md">수정</button>
+                  <button onClick={handleDeleteGroup} className="text-[10px] font-bold text-red-400 border border-red-50 px-2 py-1 rounded-md bg-red-50/30">삭제</button>
+                </>
+              ) : (
+                <button onClick={handleLeaveGroup} className="text-[10px] font-bold text-gray-400 border border-gray-100 px-2 py-1 rounded-md">탈퇴</button>
+              )}
+            </div>
           </div>
           <p className="text-gray-500 text-sm font-medium leading-relaxed">
             {group.description || "함께 도전하고 성취하는 즐거움을 느껴보세요!"}
@@ -69,13 +155,24 @@ export default function GroupDetailClient({
           {challenges.length > 0 ? (
             challenges.map((challenge) => (
               <div key={challenge.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-center">
-                <div>
-                  <h4 className="font-bold text-gray-800">{challenge.title}</h4>
-                  <p className="text-[10px] text-gray-400 font-bold mt-1">
-                    목표: 주 {challenge.weekly_target}회
-                  </p>
+                <div className="flex-1 min-w-0 mr-4">
+                  <h4 className="font-bold text-gray-800 truncate">{challenge.title}</h4>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-[10px] text-gray-400 font-bold">
+                      목표: 주 {challenge.weekly_target}회
+                    </p>
+                   {/* 수정된 권한 로직: 방장이거나, 본인이 만든 챌린지일 때만 삭제 버튼 노출 */}
+                    {(isOwner || challenge.user_id === currentUserId) && (
+                      <button 
+                        onClick={() => handleDeleteChallenge(challenge.id)}
+                        className="text-[10px] text-red-400 font-bold hover:underline"
+                      >
+                        삭제
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-gray-100 shadow-sm text-lg">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-gray-100 shadow-sm text-lg flex-shrink-0">
                   🔥
                 </div>
               </div>
@@ -98,20 +195,17 @@ export default function GroupDetailClient({
           {verifications.length > 0 ? (
             verifications.map((v) => (
               <div key={v.id} className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                {/* 1. 이미지 표시 (버킷 이름 'photos' 확인) */}
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex-shrink-0 overflow-hidden border border-blue-50">
                   <img 
                     src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${v.image_url}`}
                     className="w-full h-full object-cover"
                     alt="인증"
                     onError={(e) => {
-                    // 이미지 로드 실패 시 콘솔에 실제 호출된 URL을 찍어보세요 (디버깅용)
-                    console.log("이미지 로드 실패 URL:", (e.target as HTMLImageElement).src);
-                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/４00?text=📸'; }}
+                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400?text=📸'; 
+                    }}
                   />
                 </div>
                 
-                {/* 2. 서버에서 가져온 데이터(이름, 도전명) 표시 */}
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-blue-600 font-black mb-0.5 truncate uppercase">
                     #{v.challenges?.title || '도전 완료'}

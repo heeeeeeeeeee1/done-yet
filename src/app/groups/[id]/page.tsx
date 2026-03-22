@@ -7,6 +7,9 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
+  // 현재 유저 정보 가져오기
+  const { data: { user } } = await supabase.auth.getUser();
+
   // 1. 챌린지 ID 목록 먼저 가져오기 (인증샷 필터링용)
   const { data: challengeIds } = await supabase.from('challenges').select('id').eq('group_id', id);
   const ids = challengeIds?.map(c => c.id) || [];
@@ -26,6 +29,9 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   if (groupRes.error || !groupRes.data) return notFound();
 
+  // 방장 여부 확인 (스키마의 owner_id와 현재 유저 id 비교)
+  const isOwner = groupRes.data.owner_id === user?.id;
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white pb-20">
       <GroupDetailClient 
@@ -33,6 +39,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         challenges={challengesRes.data || []} 
         verifications={verificationsRes.data || []}
         memberCount={memberCountRes.count || 0} // 멤버 수 전달
+        isOwner={isOwner} // 추가
+        currentUserId={user?.id} // 추가
       />
     </div>
   );
