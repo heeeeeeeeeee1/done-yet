@@ -1,7 +1,7 @@
 // src/components/groups/GroupDetailClient.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import VerificationFeed from './VerificationFeed';
 import { useGroupActions } from '@/hooks/useGroupActions';
 import { useChallengeActions } from '@/hooks/useChallengeActions';
 import WeeklyProgressBanner from './WeeklyProgressBanner';
+import ChallengeList from './ChallengeList';
 
 interface GroupDetailProps {
   group: any;
@@ -23,10 +24,10 @@ interface GroupDetailProps {
   currentUserNickname: string;
 }
 
-export default function GroupDetailClient({ 
-  group, 
-  challenges, 
-  verifications, 
+export default function GroupDetailClient({
+  group,
+  challenges: initialChallenges,
+  verifications,
   memberCount,
   isOwner,
   currentUserId,
@@ -34,22 +35,52 @@ export default function GroupDetailClient({
 }: GroupDetailProps) {
   const router = useRouter();
   const supabase = createClient();
-  
-  // 1. 훅 호출 시 닉네임 전달
+
+  const [challenges, setChallenges] = useState(initialChallenges);
+
+  // ✅ 핵심 수정 1:
+  // 브로드캐스트에 의존하지 않고, 컴포넌트가 마운트될 때마다
+  // DB에서 직접 최신 챌린지 목록을 가져와 state를 갱신한다.
+  // window.location.href로 돌아오면 페이지가 완전히 새로 마운트되므로
+  // 이 useEffect가 반드시 실행되어 수정된 데이터가 반영된다.
+  useEffect(() => {
+    const fetchLatestChallenges = async () => {
+      const { data } = await supabase
+        .from('challenges')
+        .select('*')
+        .eq('group_id', group.id)
+        .order('created_at', { ascending: false });
+
+      if (data) setChallenges(data);
+    };
+
+    fetchLatestChallenges();
+  }, [group.id]); // ✅ group.id가 바뀔 때만 재실행 (마운트 시 1회)
+
   const groupActions = useGroupActions(group, currentUserId);
   const { handleUpdateChallenge, handleDeleteChallenge } = useChallengeActions(currentUserNickname);
 
-  // 2. 실시간 브로드캐스트 수신 설정
+  // ✅ 핵심 수정 2:
+  // 브로드캐스트는 다른 멤버들의 실시간 반영용으로만 유지한다.
+  // 본인 이벤트(self: true)는 제거 — 어차피 마운트 시 fetch로 처리하기 때문.
   useEffect(() => {
     const channel = supabase
-      .channel(`group-changes-${group.id}`, {
-        config: { broadcast: { self: false } }
-      })
-      .on('broadcast', { event: 'challenge_event' }, ({ payload }) => {
+      .channel(`group-changes-${group.id}`)
+      // ❌ 제거: config: { broadcast: { self: true } }
+      // 본인이 수정/삭제 후 돌아올 때는 위의 마운트 fetch가 처리하므로 불필요
+      .on('broadcast', { event: 'challenge_event' }, async ({ payload }) => {
         toast(`${payload.nickname} 님이 '${payload.title}' 목표를 ${payload.action}했습니다!`, {
           icon: payload.action === '수정' ? '🔄' : '🗑️',
         });
-        router.refresh();
+
+        // 다른 멤버 이벤트 수신 시 DB 재조회
+        const { data: updatedChallenges } = await supabase
+          .from('challenges')
+          .select('*')
+          .eq('group_id', group.id)
+          .order('created_at', { ascending: false });
+
+        if (updatedChallenges) setChallenges(updatedChallenges);
       })
       .subscribe();
 
@@ -59,20 +90,19 @@ export default function GroupDetailClient({
   }, [group.id, supabase, router]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
-      <GroupHeader 
-        group={group} 
-        isOwner={isOwner} 
-        onUpdate={groupActions.handleUpdateGroup} 
-        onDelete={groupActions.handleDeleteGroup} 
-        onLeave={groupActions.handleLeaveGroup} 
+    <div className="pb-20">
+      <GroupHeader
+        group={group}
+        isOwner={isOwner}
+        onLeave={groupActions.handleLeaveGroup}
+        onDelete={groupActions.handleDeleteGroup}
       />
 
-      <section className='px-2 mb-3'>
-        <WeeklyProgressBanner 
-          verifications={verifications} 
-          currentUserId={currentUserId} 
-          weeklyTarget={challenges[0]?.weekly_target ?? 3} // 기본값 3(데이터가 진짜 null이거나 undefined일 때만 3을 쓰겠다)
+      <section className="px-6 mb-8">
+        <WeeklyProgressBanner
+          verifications={verifications}
+          currentUserId={currentUserId}
+          weeklyTarget={challenges[0]?.weekly_target ?? 3}
         />
       </section>
 
@@ -87,51 +117,25 @@ export default function GroupDetailClient({
             + 새 도전 만들기
           </Link>
         </div>
-        
-        <div className="space-y-3">
-          {challenges.length > 0 ? (
-            challenges.map((c) => (
-              <div key={c.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-center">
-                <div className="flex-1 min-w-0 mr-4">
-                  <h4 className="font-bold text-gray-800 truncate">{c.title}</h4>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] font-bold">
-                    <span className="text-gray-400">목표: 주 {c.weekly_target}회</span>
-                    
-                    {(isOwner || c.user_id === currentUserId) && (
-                      <div className="flex gap-2">
-                        {/* handleUpdateChallenge에 (도전객체, 그룹ID) 전달 */}
-                        <button 
-                          onClick={() => handleUpdateChallenge(c, group.id)} 
-                          className="text-blue-500 underline"
-                        >
-                          수정
-                        </button>
-                        {/* handleDeleteChallenge에 (도전ID, 그룹ID, 제목) 전달 */}
-                        <button 
-                          onClick={() => handleDeleteChallenge(c.id, group.id, c.title)} 
-                          className="text-red-400 underline"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-gray-100 shadow-sm text-lg flex-shrink-0">
-                  🔥
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-              <p className="text-sm text-gray-400 font-medium">아직 등록된 도전이 없습니다.</p>
-            </div>
-          )}
-        </div>
+
+        {challenges.length > 0 ? (
+          <ChallengeList
+            challenges={challenges}
+            isOwner={isOwner}
+            currentUserId={currentUserId}
+            onUpdate={handleUpdateChallenge}
+            onDelete={handleDeleteChallenge}
+            groupId={group.id}
+          />
+        ) : (
+          <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+            <p className="text-sm text-gray-400 font-medium">아직 등록된 도전이 없습니다.</p>
+          </div>
+        )}
       </section>
 
-      <section className="px-6 pb-24">
-        <h3 className="font-bold text-gray-800 mb-4 px-1">최근 인증 피드</h3>
+      <section className="px-6">
+        <h3 className="font-bold text-gray-800 mb-4 px-1">멤버 활동</h3>
         <VerificationFeed verifications={verifications} />
       </section>
     </div>

@@ -1,4 +1,8 @@
 // src/app/groups/[id]/page.tsx
+// 서버 캐시 무효화
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import GroupDetailClient from '@/components/groups/GroupDetailClient';
@@ -13,7 +17,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   // 2. 유저의 프로필(닉네임) 가져오기
   // 위에서 변수명을 'profile'로 정의하셨습니다.
   const { data: profile } = await supabase
-    .from('users') 
+    .from('users')
     .select('nickname')
     .eq('id', user?.id)
     .single();
@@ -42,13 +46,13 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white pb-20">
-      <GroupDetailClient 
-        group={groupRes.data} 
-        challenges={challengesRes.data || []} 
+      <GroupDetailClient
+        group={groupRes.data}
+        challenges={challengesRes.data || []}
         verifications={verificationsRes.data || []}
         memberCount={memberCountRes.count || 0} // 멤버 수 전달
-        isOwner={isOwner} 
-        currentUserId={user?.id} 
+        isOwner={isOwner}
+        currentUserId={user?.id}
         // userProfile 대신 위에서 정의한 profile 변수를 사용합니다.
         // 데이터가 없을 경우를 대비해 '익명' 혹은 기본값을 설정해주는 것이 좋습니다.
         currentUserNickname={profile?.nickname || '익명의 멤버'}

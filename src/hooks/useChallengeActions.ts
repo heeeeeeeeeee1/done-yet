@@ -1,47 +1,45 @@
-// src/hooks/useChallengeActions.ts
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 
-export const useChallengeActions = (nickname: string) => { // 닉네임 주입
+export const useChallengeActions = (nickname: string) => {
   const router = useRouter();
   const supabase = createClient();
 
-  const handleUpdateChallenge = async (challenge: any, groupId: string) => {
-    const newTitle = prompt("수정할 도전 제목", challenge.title);
-    if (!newTitle) return;
-
-    const { error } = await supabase
-      .from('challenges')
-      .update({ title: newTitle })
-      .eq('id', challenge.id);
-
-    if (!error) {
-      // 수정 성공 후 브로드캐스트 전송
-      await supabase.channel(`group-changes-${groupId}`).send({
-        type: 'broadcast',
-        event: 'challenge_event',
-        payload: { nickname, action: '수정', title: newTitle },
-      });
-      router.refresh();
-      toast.success("수정되었습니다.");
-    }
+  // 1. 수정 버튼 클릭 시 수정 페이지로 이동
+  const handleUpdateChallenge = (challenge: any, groupId: string) => {
+    // challenge 객체와 groupId를 받아 해당 수정 페이지로 이동합니다.
+    router.push(`/groups/${groupId}/challenges/${challenge.id}/edit`);
   };
 
+  // 2. 삭제 로직
   const handleDeleteChallenge = async (challengeId: string, groupId: string, title: string) => {
-    if (!confirm("삭제하시겠습니까?")) return;
-    
+    if (!confirm(`'${title}' 도전을 삭제하시겠습니까?`)) return;
+
     const { error } = await supabase.from('challenges').delete().eq('id', challengeId);
 
     if (!error) {
-      // 삭제 성공 후 브로드캐스트 전송
-      await supabase.channel(`group-changes-${groupId}`).send({
-        type: 'broadcast',
-        event: 'challenge_event',
-        payload: { nickname, action: '삭제', title },
+      // 삭제 성공 후 브로드캐스트 알림 전송
+      // 브로드캐스트 완료 대기
+      await new Promise<void>((resolve) => {
+        const channel = supabase.channel(`group-changes-${groupId}`);
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.send({
+              type: 'broadcast',
+              event: 'challenge_event',
+              payload: { nickname, action: '삭제', title },
+            });
+            supabase.removeChannel(channel);
+            resolve();
+          }
+        });
       });
+
+      toast.success('삭제되었습니다.'); // ✅ error → success로 변경
       router.refresh();
-      toast.error("삭제되었습니다.");
+    } else {
+      toast.error("삭제 중 오류가 발생했습니다.");
     }
   };
 
