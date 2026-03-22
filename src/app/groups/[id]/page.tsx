@@ -7,19 +7,21 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [groupRes, challengesRes, verificationsRes] = await Promise.all([
+  // 1. 챌린지 ID 목록 먼저 가져오기 (인증샷 필터링용)
+  const { data: challengeIds } = await supabase.from('challenges').select('id').eq('group_id', id);
+  const ids = challengeIds?.map(c => c.id) || [];
+
+  // 2. 여러 데이터를 병렬로 호출
+  const [groupRes, challengesRes, verificationsRes, memberCountRes] = await Promise.all([
     supabase.from('groups').select('*').eq('id', id).single(),
     supabase.from('challenges').select('*').eq('group_id', id).order('created_at', { ascending: false }),
-    // 해당 그룹에 속한 모든 챌린지의 인증샷을 가져옵니다.
     supabase
       .from('verifications')
-      .select(`
-        *,
-        profiles (full_name),
-        challenges (title)
-      `)
-      .in('challenge_id', (await supabase.from('challenges').select('id').eq('group_id', id)).data?.map(c => c.id) || [])
-      .order('created_at', { ascending: false })
+      .select(`*, profiles (full_name), challenges (title)`)
+      .in('challenge_id', ids)
+      .order('created_at', { ascending: false }),
+    // 멤버 수 추가
+    supabase.from('group_members').select('*', { count: 'exact', head: true }).eq('group_id', id)
   ]);
 
   if (groupRes.error || !groupRes.data) return notFound();
@@ -29,7 +31,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       <GroupDetailClient 
         group={groupRes.data} 
         challenges={challengesRes.data || []} 
-        verifications={verificationsRes.data || []} // 인증 데이터 전달
+        verifications={verificationsRes.data || []}
+        memberCount={memberCountRes.count || 0} // 멤버 수 전달
       />
     </div>
   );
