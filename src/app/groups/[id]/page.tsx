@@ -7,14 +7,22 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await createClient();
 
-  // 현재 유저 정보 가져오기
+  // 1. 현재 유저 정보 가져오기
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 1. 챌린지 ID 목록 먼저 가져오기 (인증샷 필터링용)
+  // 2. 유저의 프로필(닉네임) 가져오기
+  // 위에서 변수명을 'profile'로 정의하셨습니다.
+  const { data: profile } = await supabase
+    .from('profiles') 
+    .select('nickname')
+    .eq('id', user?.id)
+    .single();
+
+  // 챌린지 ID 목록 먼저 가져오기 (인증샷 필터링용)
   const { data: challengeIds } = await supabase.from('challenges').select('id').eq('group_id', id);
   const ids = challengeIds?.map(c => c.id) || [];
 
-  // 2. 여러 데이터를 병렬로 호출
+  // 3. 여러 데이터를 병렬로 호출
   const [groupRes, challengesRes, verificationsRes, memberCountRes] = await Promise.all([
     supabase.from('groups').select('*').eq('id', id).single(),
     supabase.from('challenges').select('*').eq('group_id', id).order('created_at', { ascending: false }),
@@ -39,8 +47,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         challenges={challengesRes.data || []} 
         verifications={verificationsRes.data || []}
         memberCount={memberCountRes.count || 0} // 멤버 수 전달
-        isOwner={isOwner} // 추가
-        currentUserId={user?.id} // 추가
+        isOwner={isOwner} 
+        currentUserId={user?.id} 
+        // userProfile 대신 위에서 정의한 profile 변수를 사용합니다.
+        // 데이터가 없을 경우를 대비해 '익명' 혹은 기본값을 설정해주는 것이 좋습니다.
+        currentUserNickname={profile?.nickname || '익명의 멤버'}
       />
     </div>
   );
