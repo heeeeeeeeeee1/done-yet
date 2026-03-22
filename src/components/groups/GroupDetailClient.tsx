@@ -5,13 +5,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import toast from 'react-hot-toast'; // ✅ 반드시 import 확인
-import BackButton from '@/components/common/BackButton';
+import toast from 'react-hot-toast';
 import TeamCalendar from '@/components/calendar/TeamCalendar';
 import GroupHeader from './GroupHeader';
 import VerificationFeed from './VerificationFeed';
 import { useGroupActions } from '@/hooks/useGroupActions';
 import { useChallengeActions } from '@/hooks/useChallengeActions';
+import WeeklyProgressBanner from './WeeklyProgressBanner';
 
 interface GroupDetailProps {
   group: any;
@@ -20,7 +20,7 @@ interface GroupDetailProps {
   memberCount: number;
   isOwner: boolean;
   currentUserId?: string;
-  currentUserNickname: string; // ✅ 닉네임 props 추가
+  currentUserNickname: string;
 }
 
 export default function GroupDetailClient({ 
@@ -30,7 +30,7 @@ export default function GroupDetailClient({
   memberCount,
   isOwner,
   currentUserId,
-  currentUserNickname // ✅ 구조 분해 할당에 추가
+  currentUserNickname
 }: GroupDetailProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -68,6 +68,14 @@ export default function GroupDetailClient({
         onLeave={groupActions.handleLeaveGroup} 
       />
 
+      <section className='px-2 mb-3'>
+        <WeeklyProgressBanner 
+          verifications={verifications} 
+          currentUserId={currentUserId} 
+          weeklyTarget={challenges[0]?.weekly_target ?? 3} // 기본값 3(데이터가 진짜 null이거나 undefined일 때만 3을 쓰겠다)
+        />
+      </section>
+
       <section className="px-6 mb-10">
         <TeamCalendar verifications={verifications} memberCount={memberCount} />
       </section>
@@ -91,14 +99,14 @@ export default function GroupDetailClient({
                     
                     {(isOwner || c.user_id === currentUserId) && (
                       <div className="flex gap-2">
-                        {/* ✅ handleUpdateChallenge에 (도전객체, 그룹ID) 전달 */}
+                        {/* handleUpdateChallenge에 (도전객체, 그룹ID) 전달 */}
                         <button 
                           onClick={() => handleUpdateChallenge(c, group.id)} 
                           className="text-blue-500 underline"
                         >
                           수정
                         </button>
-                        {/* ✅ handleDeleteChallenge에 (도전ID, 그룹ID, 제목) 전달 */}
+                        {/* handleDeleteChallenge에 (도전ID, 그룹ID, 제목) 전달 */}
                         <button 
                           onClick={() => handleDeleteChallenge(c.id, group.id, c.title)} 
                           className="text-red-400 underline"

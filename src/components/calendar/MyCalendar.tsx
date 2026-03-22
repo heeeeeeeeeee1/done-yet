@@ -1,4 +1,3 @@
-// src/components/calendar/MyCalendar.tsx
 'use client';
 
 import { useState } from 'react';
@@ -11,9 +10,10 @@ import { ko } from 'date-fns/locale';
 export default function MyCalendar({ verifications }: { verifications: any[] }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  // 월요일부터 시작하도록 weekStartsOn: 1 추가
   const days = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(currentMonth)),
-    end: endOfWeek(endOfMonth(currentMonth)),
+    start: startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }),
   });
 
   return (
@@ -27,20 +27,28 @@ export default function MyCalendar({ verifications }: { verifications: any[] }) 
       </div>
 
       <div className="grid grid-cols-7 gap-y-4 text-center">
-        {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-          <div key={d} className="text-[10px] font-bold text-gray-300">{d}</div>
+        {/* 요일 헤더 순서를 월요일부터로 변경 */}
+        {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+          <div key={d} className={`text-[10px] font-bold ${d === '일' ? 'text-red-300' : 'text-gray-300'}`}>
+            {d}
+          </div>
         ))}
+        
         {days.map((day, idx) => {
           const isVerified = verifications.some(v => isSameDay(new Date(v.proof_date), day));
           const isCurrentMonth = isSameMonth(day, currentMonth);
+          const isSunday = day.getDay() === 0;
 
           return (
             <div key={idx} className="relative py-2 flex flex-col items-center">
-              <span className={`text-xs ${!isCurrentMonth ? 'text-gray-200' : 'text-gray-600'}`}>
+              <span className={`text-xs ${
+                !isCurrentMonth ? 'text-gray-100' : 
+                isSunday ? 'text-red-400' : 'text-gray-600'
+              }`}>
                 {format(day, 'd')}
               </span>
               {isVerified && (
-                <div className="mt-1 w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                <div className="mt-1 w-1.5 h-1.5 bg-blue-600 rounded-full shadow-[0_0_4px_rgba(37,99,235,0.6)]" />
               )}
             </div>
           );
