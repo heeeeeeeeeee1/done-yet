@@ -13,7 +13,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   // 2. 유저의 프로필(닉네임) 가져오기
   // 위에서 변수명을 'profile'로 정의하셨습니다.
   const { data: profile } = await supabase
-    .from('profiles') 
+    .from('users') 
     .select('nickname')
     .eq('id', user?.id)
     .single();
