@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // 반드시 'next/navigation'에서 가져와야 합니다.
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'react-hot-toast'; // toast 추가
 
 export default function UploadButton() {
   const [file, setFile] = useState<File | null>(null);
@@ -13,7 +14,6 @@ export default function UploadButton() {
   const supabase = createClient();
   const router = useRouter();
 
-  // 1. 내가 참여 중인 그룹의 모든 도전 목록 불러오기 (그룹명 포함)
   useEffect(() => {
     const fetchMyChallenges = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -30,10 +30,7 @@ export default function UploadButton() {
         `)
         .eq('user_id', user.id);
       
-      if (error) {
-        console.error('도전 목록 불러오기 실패:', error);
-        return;
-      }
+      if (error) return;
 
       const list = data?.flatMap((item: any) => {
         const group = Array.isArray(item.groups) ? item.groups[0] : item.groups;
@@ -42,7 +39,8 @@ export default function UploadButton() {
         return group.challenges.map((c: any) => ({
           id: c.id,
           title: c.title,
-          groupName: group.name || '이름 없음'
+          groupName: group.name || '이름 없음',
+          groupId: group.id // ✅ 이동을 위해 그룹 ID 저장
         }));
       }) || [];
 
@@ -53,26 +51,30 @@ export default function UploadButton() {
   }, [supabase]);
 
   const handleUpload = async () => {
-    if (!file || !selectedChallenge) return alert('사진과 도전을 선택해주세요!');
+    if (!file || !selectedChallenge) return toast.error('사진과 도전을 선택해주세요!');
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert('로그인이 필요합니다!');
+    if (!user) return toast.error('로그인이 필요합니다!');
 
     setIsUploading(true);
 
     try {
+      // 현재 선택된 챌린지가 속한 그룹 ID 찾기
+      const targetChallenge = challenges.find(c => c.id === selectedChallenge);
+      const targetGroupId = targetChallenge?.groupId;
+
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `verifications/${fileName}`;
 
-      // 2. Storage에 이미지 업로드
+      // 1. Storage 업로드
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 3. Verifications 테이블에 기록 저장
+      // 2. DB 저장
       const { error: dbError } = await supabase.from('verifications').insert({
         user_id: user.id,
         challenge_id: selectedChallenge,
@@ -82,18 +84,20 @@ export default function UploadButton() {
 
       if (dbError) throw dbError;
 
-      alert('오늘의 도전 성공! 🔥');
+      toast.success('오늘의 도전 성공! 🔥');
       
       // 상태 초기화
       setFile(null);
       setSelectedChallenge('');
       
-      // 서버 데이터를 새로고침하여 그룹 페이지의 달력과 피드를 업데이트합니다.
-      router.refresh(); 
+      // 3. 해당 그룹 상세 페이지로 이동 및 새로고침
+      if (targetGroupId) {
+        router.push(`/groups/${targetGroupId}`);
+        router.refresh(); 
+      }
 
     } catch (error: any) {
-      console.error('업로드 실패:', error);
-      alert(`업로드 실패: ${error.message || '알 수 없는 오류'}`);
+      toast.error(`업로드 실패: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -105,7 +109,7 @@ export default function UploadButton() {
         <select 
           value={selectedChallenge} 
           onChange={(e) => setSelectedChallenge(e.target.value)}
-          className="w-full p-4 rounded-2xl border border-gray-100 bg-gray-50 font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          className="w-full p-4 rounded-2xl border border-gray-100 bg-gray-50 font-bold text-sm outline-none"
         >
           <option value="">어떤 도전에 성공하셨나요?</option>
           {challenges.map(c => (
@@ -116,19 +120,19 @@ export default function UploadButton() {
         </select>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 px-1">
         <input 
           type="file" 
           accept="image/*" 
           onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+          className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 cursor-pointer"
         />
       </div>
 
       <button 
         onClick={handleUpload}
         disabled={isUploading}
-        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 active:scale-95 transition-all disabled:bg-gray-300 disabled:shadow-none mt-2"
+        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-all disabled:bg-gray-300 mt-2"
       >
         {isUploading ? '인증샷 전송 중...' : '도전 완료 인증하기 📸'}
       </button>
