@@ -2,6 +2,29 @@
 import './globals.css';
 import Footer from '@/components/Footer';
 import { createClient } from '@/lib/supabase/server';
+import type { Metadata } from 'next'; // 1. Metadata 타입 추가
+
+// 2. 메타데이터 설정 추가
+export const metadata: Metadata = {
+  title: '오늘했어? | 나만의 도전 관리',
+  description: '매일의 도전을 기록하고 성장을 눈으로 확인하세요.',
+  openGraph: {
+    title: '오늘했어? - 오늘의 도전을 완료하셨나요?',
+    description: '챌린지 달력으로 나의 성실도를 체크해보세요!',
+    url: 'https://done-yet.vercel.app',
+    siteName: 'Done Yet',
+    images: [
+      {
+        url: '/logo.png',
+        width: 1200,
+        height: 630,
+        alt: 'Done Yet 서비스 썸네일',
+      },
+    ],
+    locale: 'ko_KR',
+    type: 'website',
+  },
+};
 
 export default async function RootLayout({
   children,
@@ -13,14 +36,11 @@ export default async function RootLayout({
 
   return (
     <html lang="ko">
-      <body className="bg-gray-50"> {/* 전체 배경은 연한 회색으로 설정 */}
-        {/* 모바일 뷰포트 제한 컨테이너 */}
+      <body className="bg-gray-50">
         <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
-          <main className="flex-1 pb-24"> 
+          <main className="flex-1 pb-24">
             {children}
           </main>
-
-          {/* 로그인 시 하단 고정 푸터 */}
           {user && <Footer />}
         </div>
       </body>
