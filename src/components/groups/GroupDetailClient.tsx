@@ -1,4 +1,3 @@
-// src/components/groups/GroupDetailClient.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -13,6 +12,8 @@ import { useGroupActions } from '@/hooks/useGroupActions';
 import { useChallengeActions } from '@/hooks/useChallengeActions';
 import WeeklyProgressBanner from './WeeklyProgressBanner';
 import ChallengeList from './ChallengeList';
+// ✅ 새 컴포넌트 임포트
+import InviteCodeSection from './InviteCodeSection';
 
 interface GroupDetailProps {
   group: any;
@@ -38,11 +39,7 @@ export default function GroupDetailClient({
 
   const [challenges, setChallenges] = useState(initialChallenges);
 
-  // ✅ 핵심 수정 1:
-  // 브로드캐스트에 의존하지 않고, 컴포넌트가 마운트될 때마다
-  // DB에서 직접 최신 챌린지 목록을 가져와 state를 갱신한다.
-  // window.location.href로 돌아오면 페이지가 완전히 새로 마운트되므로
-  // 이 useEffect가 반드시 실행되어 수정된 데이터가 반영된다.
+  // ✅ 마운트 시 최신 챌린지 목록 동기화
   useEffect(() => {
     const fetchLatestChallenges = async () => {
       const { data } = await supabase
@@ -55,25 +52,20 @@ export default function GroupDetailClient({
     };
 
     fetchLatestChallenges();
-  }, [group.id]); // ✅ group.id가 바뀔 때만 재실행 (마운트 시 1회)
+  }, [group.id, supabase]);
 
   const groupActions = useGroupActions(group, currentUserId);
   const { handleUpdateChallenge, handleDeleteChallenge } = useChallengeActions(currentUserNickname);
 
-  // ✅ 핵심 수정 2:
-  // 브로드캐스트는 다른 멤버들의 실시간 반영용으로만 유지한다.
-  // 본인 이벤트(self: true)는 제거 — 어차피 마운트 시 fetch로 처리하기 때문.
+  // ✅ 실시간 브로드캐스트 리스너 (타 멤버 변경 감지)
   useEffect(() => {
     const channel = supabase
       .channel(`group-changes-${group.id}`)
-      // ❌ 제거: config: { broadcast: { self: true } }
-      // 본인이 수정/삭제 후 돌아올 때는 위의 마운트 fetch가 처리하므로 불필요
       .on('broadcast', { event: 'challenge_event' }, async ({ payload }) => {
         toast(`${payload.nickname} 님이 '${payload.title}' 목표를 ${payload.action}했습니다!`, {
           icon: payload.action === '수정' ? '🔄' : '🗑️',
         });
 
-        // 다른 멤버 이벤트 수신 시 DB 재조회
         const { data: updatedChallenges } = await supabase
           .from('challenges')
           .select('*')
@@ -87,10 +79,11 @@ export default function GroupDetailClient({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [group.id, supabase, router]);
+  }, [group.id, supabase]);
 
   return (
     <div className="pb-20">
+      {/* 1. 상단 네비게이션 및 설정 메뉴 */}
       <GroupHeader
         group={group}
         isOwner={isOwner}
@@ -98,6 +91,10 @@ export default function GroupDetailClient({
         onDelete={groupActions.handleDeleteGroup}
       />
 
+      {/* ✅ 2. 초대 코드 섹션 추가 (헤더 바로 아래 배치) */}
+      <InviteCodeSection inviteCode={group.invite_code} />
+
+      {/* 3. 이번 주 진행 현황 */}
       <section className="px-6 mb-8">
         <WeeklyProgressBanner
           verifications={verifications}
@@ -106,10 +103,12 @@ export default function GroupDetailClient({
         />
       </section>
 
+      {/* 4. 팀 전체 챌린지 캘린더 */}
       <section className="px-6 mb-10">
         <TeamCalendar verifications={verifications} memberCount={memberCount} />
       </section>
 
+      {/* 5. 진행 중인 개별 도전 목록 */}
       <section className="px-6 mb-10">
         <div className="flex justify-between items-center mb-4 px-1">
           <h3 className="font-bold text-gray-800">진행 중인 도전</h3>
@@ -134,6 +133,7 @@ export default function GroupDetailClient({
         )}
       </section>
 
+      {/* 6. 멤버들의 최근 인증샷 피드 */}
       <section className="px-6">
         <h3 className="font-bold text-gray-800 mb-4 px-1">멤버 활동</h3>
         <VerificationFeed verifications={verifications} />
