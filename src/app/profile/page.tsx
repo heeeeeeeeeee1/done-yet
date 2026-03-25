@@ -57,8 +57,8 @@ export default async function ProfilePage() {
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {myGroups?.length ? (
             myGroups.map((item: any) => (
-              <Link 
-                key={item.groups.id} 
+              <Link
+                key={item.groups.id}
                 href={`/groups/${item.groups.id}`}
                 className="flex-shrink-0 w-32 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm"
               >
@@ -78,15 +78,21 @@ export default async function ProfilePage() {
         <div className="space-y-3">
           {myChallenges?.length ? (
             myChallenges.map((challenge) => (
-              <div key={challenge.id} className="p-5 bg-white rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+              /* Link로 감싸서 클릭 시 해당 그룹의 상세 페이지(혹은 도전 상세)로 이동 */
+              <Link
+                key={challenge.id}
+                href={`/groups/${challenge.group_id}`} // 보통 그룹 상세 페이지 내에 해당 도전이 보이니까요!
+                className="p-5 bg-white rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center active:scale-[0.98] transition-transform block"
+              >
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold mb-1">{challenge.groups?.name}</p>
                   <h4 className="font-bold text-gray-800">{challenge.title}</h4>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-black text-blue-600">주 {challenge.weekly_target}회 목표</p>
+                  {/* 진행률 같은 걸 추가로 표시해도 좋겠네요! */}
                 </div>
-              </div>
+              </Link>
             ))
           ) : (
             <p className="text-xs text-gray-400 p-4">등록된 도전이 없습니다.</p>
