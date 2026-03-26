@@ -1,3 +1,4 @@
+// src/app/groups/[id]/challenges/[challengeId]/edit/page.tsx
 'use client';
 
 import { useEffect, useState, use } from 'react';
@@ -13,30 +14,39 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
   const [title, setTitle] = useState('');
   const [weeklyTarget, setWeeklyTarget] = useState(3);
   const [penaltyDesc, setPenaltyDesc] = useState('');
+  const [userNickname, setUserNickname] = useState(''); // 알림용 닉네임 상태 추가
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchChallenge = async () => {
-      const { data, error } = await supabase
-        .from('challenges').select('*').eq('id', challengeId).single();
+    const fetchData = async () => {
+      // 1. 도전 정보와 유저 프로필 정보를 동시에 가져옴
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (error || !data) {
+      const [challengeRes, profileRes] = await Promise.all([
+        supabase.from('challenges').select('*').eq('id', challengeId).single(),
+        supabase.from('users').select('nickname').eq('id', user?.id).single()
+      ]);
+
+      if (challengeRes.error || !challengeRes.data) {
         toast.error('정보를 불러오지 못했습니다.');
         router.back();
         return;
       }
-      setTitle(data.title);
-      setWeeklyTarget(data.weekly_target);
-      setPenaltyDesc(data.penalty_desc || '');
+
+      setTitle(challengeRes.data.title);
+      setWeeklyTarget(challengeRes.data.weekly_target);
+      setPenaltyDesc(challengeRes.data.penalty_desc || '');
+      setUserNickname(profileRes.data?.nickname || '익명');
       setIsLoading(false);
     };
-    fetchChallenge();
-  }, [challengeId]);
+    fetchData();
+  }, [challengeId, supabase, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return toast.error('제목을 입력해주세요.');
 
+    // 1. DB 데이터 업데이트
     const { error } = await supabase
       .from('challenges')
       .update({
@@ -48,13 +58,28 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
 
     if (error) return toast.error('수정에 실패했습니다.');
 
-    // ✅ 핵심 수정:
-    // 브로드캐스트를 받을 채널이 그룹 페이지에 아직 없는 타이밍 문제가 있었음.
-    // 브로드캐스트 대신, 다른 멤버들을 위한 Supabase Realtime DB 변경 감지로 대체하거나
-    // 여기서는 단순히 DB 업데이트 후 바로 이동한다.
-    // GroupDetailClient가 마운트될 때 직접 DB를 조회하므로 항상 최신 데이터가 표시된다.
+    // ✅ 2. 실시간 브로드캐스트 알림 전송
+    const channel = supabase.channel(`group-changes-${groupId}`);
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.send({
+          type: 'broadcast',
+          event: 'challenge_event',
+          payload: {
+            nickname: userNickname,
+            action: '수정',
+            title: title.trim()
+          },
+        });
+        supabase.removeChannel(channel);
+      }
+    });
+
     toast.success('수정 완료!');
-    window.location.href = `/groups/${groupId}`; // 완전 새로고침으로 마운트 fetch 유도
+
+    // 3. 페이지 이동 (이전 코드의 window.location.href 대신 router 사용 가능)
+    router.push(`/groups/${groupId}`);
+    router.refresh();
   };
 
   if (isLoading) return <div className="p-10 text-center text-gray-400">로딩 중...</div>;
