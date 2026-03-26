@@ -39,7 +39,7 @@ export default function GroupDetailClient({
 
   const [challenges, setChallenges] = useState(initialChallenges);
 
-  // ✅ 마운트 시 최신 챌린지 목록 동기화
+  // 마운트 시 최신 챌린지 목록 동기화
   useEffect(() => {
     const fetchLatestChallenges = async () => {
       const { data } = await supabase
@@ -57,7 +57,7 @@ export default function GroupDetailClient({
   const groupActions = useGroupActions(group, currentUserId);
   const { handleUpdateChallenge, handleDeleteChallenge } = useChallengeActions(currentUserNickname);
 
-  // ✅ 실시간 브로드캐스트 리스너 (타 멤버 변경 감지)
+  // 실시간 브로드캐스트 리스너 (타 멤버 변경 감지)
   useEffect(() => {
     const channel = supabase
       .channel(`group-changes-${group.id}`)
@@ -91,7 +91,7 @@ export default function GroupDetailClient({
         onDelete={groupActions.handleDeleteGroup}
       />
 
-      {/* ✅ 2. 초대 코드 섹션 추가 (헤더 바로 아래 배치) */}
+      {/* 2. 초대 코드 섹션 추가 (헤더 바로 아래 배치) */}
       <InviteCodeSection inviteCode={group.invite_code} />
 
       {/* 3. 이번 주 진행 현황 */}
