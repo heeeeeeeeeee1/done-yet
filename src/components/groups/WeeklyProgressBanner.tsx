@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function WeeklyProgressBanner({ verifications, currentUserId, weeklyTarget }: Props) {
-  // 1. 계산 로직 분리
+  // 1. 계산 로직
   const now = new Date();
   const day = now.getDay();
   const krDay = day === 0 ? 7 : day;
@@ -22,35 +22,50 @@ export default function WeeklyProgressBanner({ verifications, currentUserId, wee
     v.user_id === currentUserId &&
     new Date(v.proof_date) >= monday
   );
+
   const currentCount = new Set(myCurrentWeekVerifications.map(v => v.proof_date)).size;
   const neededCount = weeklyTarget - currentCount;
+  const progress = Math.min(Math.round((currentCount / weeklyTarget) * 100), 100);
 
-  // 2. 상태별 UI 정의
+  // 상태별 설정
   const isSuccess = neededCount <= 0;
   const isFail = neededCount > remainingDays;
   const isDanger = neededCount === remainingDays;
 
+  // 배경 및 텍스트 컬러 정의
+  const statusConfig = isSuccess
+    ? { bg: 'bg-green-50 border-green-100', text: 'text-green-700', icon: '🎉', msg: '목표 달성 완료!' }
+    : isFail
+      ? { bg: 'bg-gray-50 border-gray-200', text: 'text-gray-500', icon: '💀', msg: '달성 실패... 벌칙 확정' }
+      : isDanger
+        ? { bg: 'bg-red-50 border-red-100 animate-pulse', text: 'text-red-600', icon: '🚨', msg: '오늘부터 매일 해야 성공!' }
+        : { bg: 'bg-blue-50 border-blue-100', text: 'text-blue-700', icon: '💡', msg: `목표까지 ${neededCount}회 남았어요` };
+
   return (
-    <div className={`mx-1 p-5 rounded-3xl border shadow-sm transition-all ${isSuccess ? 'bg-green-50 border-green-100' :
-      isFail ? 'bg-gray-50 border-gray-200' :
-        isDanger ? 'bg-red-50 border-red-100 animate-pulse' :
-          'bg-blue-50 border-blue-100'
-      }`}>
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">
-          {isSuccess ? '🎉' : isFail ? '💀' : isDanger ? '🚨' : '💡'}
-        </span>
-        <div>
-          <p className={`text-lg font-black ${isDanger ? 'text-red-600' : 'text-gray-800'}`}>
-            {isSuccess ? '이번 주 목표 달성 완료!' :
-              isFail ? '목표 달성 실패... 벌칙 확정!' :
-                isDanger ? `오늘부터 일요일까지 매일 해야 성공해요!` :
-                  `이번 주 목표까지 ${neededCount}회 남았어요!`}
-          </p>
-          <p className="text-[11px] text-gray-500 mt-0.5">
-            이번 주 성공: {currentCount} / {weeklyTarget} (남은 일수: {remainingDays}일)
+    <div className={`mx-1 p-4 rounded-2xl border shadow-sm transition-all ${statusConfig.bg}`}>
+      {/* ✅ Flex-wrap과 gap 조정을 통해 좁은 화면 대응 */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="text-xl shrink-0">{statusConfig.icon}</span>
+          <div className="min-w-0">
+            {/* ✅ break-keep과 truncate로 텍스트 깨짐 방지 */}
+            <h4 className={`text-sm font-black break-keep ${statusConfig.text}`}>
+              {statusConfig.msg}
+            </h4>
+            <p className="text-[10px] text-gray-500 mt-0.5 font-medium">
+              성공 {currentCount} / {weeklyTarget} (남은 일수: {remainingDays}일)
+            </p>
+          </div>
+        </div>
+
+        {/* ✅ 진행률 표시 부분 (우측 고정) */}
+        <div className="shrink-0 text-right bg-white/50 px-2 py-1 rounded-lg border border-black/5">
+          <p className={`text-xs font-black ${isDanger ? 'text-red-600' : 'text-blue-600'}`}>
+            {progress}%
           </p>
         </div>
+
       </div>
     </div>
   );
