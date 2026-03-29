@@ -1,9 +1,11 @@
+// src/components/common/UploadButton.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
+import { ChevronDown, ImagePlus, Loader2 } from 'lucide-react';
 
 export default function UploadButton() {
   const [file, setFile] = useState<File | null>(null);
@@ -19,144 +21,130 @@ export default function UploadButton() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 내 그룹과 그 그룹에 속한 챌린지들을 한 번에 가져옴
       const { data, error } = await supabase
         .from('group_members')
         .select(`
           groups (
             id,
             name,
-            challenges (id, title)
+            challenges!inner (id, title, user_id)
           )
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('groups.challenges.user_id', user.id);
 
       if (error) return;
 
       const list = data?.flatMap((item: any) => {
-        // 데이터 구조가 배열로 올 경우를 대비한 처리
         const group = Array.isArray(item.groups) ? item.groups[0] : item.groups;
         if (!group || !group.challenges) return [];
-
         return group.challenges.map((c: any) => ({
           id: c.id,
           title: c.title,
-          groupName: group.name || '이름 없음',
+          groupName: group.name,
           groupId: group.id
         }));
       }) || [];
 
       setChallenges(list);
     };
-
     fetchMyChallenges();
   }, [supabase]);
 
   const handleUpload = async () => {
-    // 1. 유효성 검사
-    if (!file) return toast.error('인증할 사진을 선택해주세요!');
-    if (!selectedChallenge) return toast.error('어떤 도전에 성공했는지 선택해주세요!');
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error('로그인이 필요합니다!');
-
+    if (!file || !selectedChallenge) return toast.error('도전과 사진을 모두 선택해주세요!');
     setIsUploading(true);
 
     try {
-      // 이동할 타겟 그룹 ID 찾기
-      const targetChallenge = challenges.find(c => c.id === selectedChallenge);
-      const targetGroupId = targetChallenge?.groupId;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('로그인 필요');
 
-      // 파일명 최적화 (중복 방지 및 경로 설정)
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `verifications/${fileName}`;
-
-      // 2. Supabase Storage 업로드
-      const { error: uploadError } = await supabase.storage
-        .from('photos')
-        .upload(filePath, file);
-
+      const { error: uploadError } = await supabase.storage.from('photos').upload(`verifications/${fileName}`, file);
       if (uploadError) throw uploadError;
 
-      // 3. DB 저장 (오늘 날짜 기준으로 저장)
       const { error: dbError } = await supabase.from('verifications').insert({
         user_id: user.id,
         challenge_id: selectedChallenge,
-        image_url: filePath,
+        image_url: `verifications/${fileName}`,
         proof_date: new Date().toISOString().split('T')[0],
       });
-
       if (dbError) throw dbError;
 
-      // 성공 피드백
-      toast.success('오늘의 도전 성공! 🔥', {
-        style: { borderRadius: '12px', background: '#333', color: '#fff' }
-      });
-
-      // 상태 초기화
+      toast.success('오늘의 도전 인증 성공! 🔥');
       setFile(null);
       setSelectedChallenge('');
 
-      // 4. 해당 그룹 상세 페이지로 즉시 이동 및 데이터 갱신
-      if (targetGroupId) {
-        router.push(`/groups/${targetGroupId}`);
-        router.refresh();
-      }
-
-    } catch (error: any) {
-      toast.error(`업로드 실패: ${error.message}`);
+      const target = challenges.find(c => c.id === selectedChallenge);
+      if (target) router.push(`/groups/${target.groupId}`);
+      router.refresh();
+    } catch (e: any) {
+      toast.error('업로드 실패');
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="flex flex-col gap-4 p-5 border border-gray-100 rounded-[24px] bg-white shadow-sm mx-1">
-      <div className="space-y-2">
-        <label className="text-[11px] font-black text-gray-400 ml-1 uppercase tracking-wider">Step 1. 도전 선택</label>
-        <select
-          value={selectedChallenge}
-          onChange={(e) => setSelectedChallenge(e.target.value)}
-          // 모바일에서 글자가 잘리지 않도록 padding과 text-size 조정
-          className="w-full p-4 rounded-xl border-none bg-gray-50 font-bold text-[13px] text-gray-800 outline-none appearance-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-        >
-          <option value="">어떤 도전에 성공하셨나요?</option>
-          {challenges.map(c => (
-            <option key={c.id} value={c.id}>
-              [{c.groupName}] {c.title}
-            </option>
-          ))}
-        </select>
+    <div className="flex flex-col gap-3 py-3 px-6 border border-gray-400 rounded-2xl bg-white shadow-xl shadow-black/5">
+      <div className="text-center py-2">
+        <p className="text-[17px] font-black text-gray-800 mb-3">
+          오늘의 도전을 인증하세요! 🔥
+        </p>
+
+        <div className="relative">
+          <select
+            value={selectedChallenge}
+            onChange={(e) => setSelectedChallenge(e.target.value)}
+            className="w-full p-3 rounded-2xl bg-gray-50/50 border border-gray-400 font-bold text-[13px] text-gray-800 outline-none appearance-none transition-all focus:border-blue-200 focus:ring-2 focus:ring-blue-100 pr-12 cursor-pointer"
+          >
+            <option value="" className="text-gray-400">어떤 도전에 성공하셨나요?</option>
+            {challenges.map(c => (
+              <option key={c.id} value={c.id}>
+                [{c.groupName}] {c.title}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-[11px] font-black text-gray-400 ml-1 uppercase tracking-wider">Step 2. 사진 인증</label>
-        <div className="relative cursor-pointer group">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="w-full text-[11px] text-gray-400 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-black file:bg-blue-600 file:text-white cursor-pointer hover:file:bg-blue-700 transition-all"
-          />
-        </div>
+      <div className="space-y-3">
+        <label className="block space-y-3 cursor-pointer group">
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              // file:cursor-pointer 를 추가하여 파란 버튼 위에서도 손가락 모양이 나오게 수정
+              className="w-full text-[12px] text-gray-500 font-medium cursor-pointer 
+                         file:cursor-pointer file:bg-blue-50 file:text-blue-600 
+                         file:border file:border-blue-100 file:rounded-2xl 
+                         file:px-4 file:py-2 file:mr-3 file:font-bold 
+                         hover:file:bg-blue-100 transition-all"
+            />
+          </div>
+        </label>
       </div>
 
       <button
         onClick={handleUpload}
         disabled={isUploading}
-        // 갤럭시 S23 등 하단바가 있는 폰에서도 누르기 편하도록 높이 및 둥글기 조정
-        className="w-full py-4.5 bg-gray-900 text-white rounded-xl font-black text-sm shadow-xl active:scale-[0.97] transition-all disabled:bg-gray-200 mt-2 flex items-center justify-center gap-2"
+        className="w-full h-12 mb-3 bg-gray-900 text-white rounded-2xl font-black text-sm active:scale-95 disabled:bg-gray-200 disabled:scale-100 transition-all flex items-center justify-center gap-2 group shadow-lg shadow-black/10"
       >
         {isUploading ? (
           <>
-            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin" />
             전송 중...
           </>
         ) : (
-          '도전 완료 인증하기 📸'
+          <>
+            <ImagePlus className="w-5 h-5 text-gray-400 group-hover:scale-110 transition-transform" />
+            도전 완료 인증하기
+          </>
         )}
       </button>
-    </div>
+    </div >
   );
 }
