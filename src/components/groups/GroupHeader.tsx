@@ -1,36 +1,74 @@
 // src/app/groups/[id]/GroupHeader.tsx
+'use client';
+
+import { useState } from 'react';
 import BackButton from '@/components/common/BackButton';
+import { UserPlus, Check, Copy } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function GroupHeader({ group, isOwner, onUpdate, onDelete, onLeave }: any) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyInviteCode = async () => {
+    try {
+      await navigator.clipboard.writeText(group.invite_code);
+      setCopied(true);
+      toast.success(`초대 코드(${group.invite_code})가 복사되었습니다!`, {
+        icon: '🔗',
+        style: { fontSize: '12px', fontWeight: 'bold' }
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('복사 실패:', err);
+    }
+  };
+
   return (
     <div className="p-6 pb-0">
       <header className="flex items-center gap-2 mb-6">
         <BackButton />
-        <h1 className="text-xl font-black italic uppercase tracking-tighter">Group Details</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-gray-900">Group Details</h1>
       </header>
-      <div className="mb-8">
-        <div className="flex justify-between items-start mb-2">
-          {/* 그룹 이름과 배지를 같은 줄에 배치 */}
-          <div className="flex items-center gap-2">
-            <h2 className="text-3xl font-black text-gray-900 leading-tight">{group.name}</h2>
-            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black shrink-0 ${isOwner ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-blue-50 text-blue-600 border border-blue-100'
-              }`}>
-              {isOwner ? '👑 방장' : '👤 멤버'}
-            </span>
+
+      <div className="mb-6">
+        <div className="flex justify-between items-start">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-3xl font-black text-gray-900 leading-tight truncate">{group.name}</h2>
+              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black shrink-0 ${isOwner ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                }`}>
+                {isOwner ? '👑 방장' : '👤 멤버'}
+              </span>
+            </div>
+            <p className="text-gray-500 text-sm font-medium">{group.description || "함께 도전해요!"}</p>
           </div>
 
-          <div className="flex gap-2">
-            {isOwner ? (
-              <>
-                <button onClick={onUpdate} className="text-[10px] font-bold text-gray-400 border border-gray-100 px-2 py-1 rounded-md">수정</button>
-                <button onClick={onDelete} className="text-[10px] font-bold text-red-400 border border-red-50 px-2 py-1 rounded-md bg-red-50/30">삭제</button>
-              </>
-            ) : (
-              <button onClick={onLeave} className="text-[10px] font-bold text-gray-400 border border-gray-100 px-2 py-1 rounded-md">탈퇴</button>
-            )}
+          {/* 버튼 영역: 초대 버튼 추가 */}
+          <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
+            <div className="flex gap-1.5">
+              {/* ✅ 초대 버튼 (아이콘 형태) */}
+              <button
+                onClick={handleCopyInviteCode}
+                className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md border transition-all ${copied
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                {copied ? <Check size={12} /> : <UserPlus size={12} />}
+                {copied ? '코드 복사' : '친구 초대'}
+              </button>
+
+              {isOwner ? (
+                <>
+                  <button onClick={onUpdate} className="text-[10px] font-bold text-gray-400 border border-gray-200 px-2 py-1.5 rounded-md bg-white">수정</button>
+                  <button onClick={onDelete} className="text-[10px] font-bold text-red-400 border border-red-100 px-2 py-1.5 rounded-md bg-red-50/30">삭제</button>
+                </>
+              ) : (
+                <button onClick={onLeave} className="text-[10px] font-bold text-gray-400 border border-gray-200 px-2 py-1.5 rounded-md bg-white">탈퇴</button>
+              )}
+            </div>
           </div>
         </div>
-        <p className="text-gray-500 text-sm font-medium">{group.description || "함께 도전해요!"}</p>
       </div>
     </div>
   );
