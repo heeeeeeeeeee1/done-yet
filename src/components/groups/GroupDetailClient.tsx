@@ -1,3 +1,4 @@
+// src/app/groups/[id]/GroupDetailClient.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -12,7 +13,6 @@ import { useGroupActions } from '@/hooks/useGroupActions';
 import { useChallengeActions } from '@/hooks/useChallengeActions';
 import WeeklyProgressBanner from './WeeklyProgressBanner';
 import ChallengeList from './ChallengeList';
-// ✅ 새 컴포넌트 임포트
 import InviteCodeSection from './InviteCodeSection';
 
 interface GroupDetailProps {
@@ -39,7 +39,6 @@ export default function GroupDetailClient({
 
   const [challenges, setChallenges] = useState(initialChallenges);
 
-  // 마운트 시 최신 챌린지 목록 동기화
   useEffect(() => {
     const fetchLatestChallenges = async () => {
       const { data } = await supabase
@@ -50,14 +49,12 @@ export default function GroupDetailClient({
 
       if (data) setChallenges(data);
     };
-
     fetchLatestChallenges();
   }, [group.id, supabase]);
 
   const groupActions = useGroupActions(group, currentUserId);
   const { handleUpdateChallenge, handleDeleteChallenge } = useChallengeActions(currentUserNickname);
 
-  // 실시간 브로드캐스트 리스너 (타 멤버 변경 감지)
   useEffect(() => {
     const channel = supabase
       .channel(`group-changes-${group.id}`)
@@ -82,8 +79,8 @@ export default function GroupDetailClient({
   }, [group.id, supabase]);
 
   return (
-    <div className="pb-20">
-      {/* 1. 상단 네비게이션 및 설정 메뉴 */}
+    <div className="pb-20 bg-gray-50 min-h-screen">
+      {/* 1. 상단 헤더 (배지 포함) */}
       <GroupHeader
         group={group}
         isOwner={isOwner}
@@ -91,8 +88,15 @@ export default function GroupDetailClient({
         onDelete={groupActions.handleDeleteGroup}
       />
 
-      {/* 2. 초대 코드 섹션 추가 (헤더 바로 아래 배치) */}
-      <InviteCodeSection inviteCode={group.invite_code} />
+      {/* 2. 초대 코드 및 인사말 */}
+      <section className="px-6 mb-4">
+        <div className="flex justify-end mb-2">
+          <p className="text-[11px] font-bold text-gray-400">
+            {currentUserNickname}님 반가워요!
+          </p>
+        </div>
+        <InviteCodeSection inviteCode={group.invite_code} />
+      </section>
 
       {/* 3. 이번 주 진행 현황 */}
       <section className="px-6 mb-8">
@@ -105,14 +109,22 @@ export default function GroupDetailClient({
 
       {/* 4. 팀 전체 챌린지 캘린더 */}
       <section className="px-6 mb-10">
-        <TeamCalendar verifications={verifications} memberCount={memberCount} />
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-4 px-1">팀 활동 현황</h3>
+          <TeamCalendar verifications={verifications} memberCount={memberCount} />
+        </div>
       </section>
 
       {/* 5. 진행 중인 개별 도전 목록 */}
       <section className="px-6 mb-10">
         <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="font-bold text-gray-800">진행 중인 도전</h3>
-          <Link href={`/groups/${group.id}/challenges/new`} className="text-xs font-bold text-blue-600">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-gray-800">진행 중인 도전</h3>
+            <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-md font-bold">
+              {challenges.length}
+            </span>
+          </div>
+          <Link href={`/groups/${group.id}/challenges/new`} className="text-xs font-bold text-blue-600 hover:underline">
             + 새 도전 만들기
           </Link>
         </div>
@@ -127,16 +139,18 @@ export default function GroupDetailClient({
             groupId={group.id}
           />
         ) : (
-          <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-            <p className="text-sm text-gray-400 font-medium">아직 등록된 도전이 없습니다.</p>
+          <div className="text-center py-12 bg-white rounded-[32px] border border-dashed border-gray-200">
+            <p className="text-sm text-gray-400 font-medium">아직 등록된 도전이 없습니다.<br />새로운 도전을 시작해보세요! 🚀</p>
           </div>
         )}
       </section>
 
       {/* 6. 멤버들의 최근 인증샷 피드 */}
       <section className="px-6">
-        <h3 className="font-bold text-gray-800 mb-4 px-1">멤버 활동</h3>
-        <VerificationFeed verifications={verifications} />
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-4 px-1 text-sm">최근 멤버 활동</h3>
+          <VerificationFeed verifications={verifications} />
+        </div>
       </section>
     </div>
   );

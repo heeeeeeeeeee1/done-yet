@@ -1,4 +1,4 @@
-// 그룹 상단 제목 관리
+// src/app/groups/[id]/GroupHeader.tsx
 import BackButton from '@/components/common/BackButton';
 
 export default function GroupHeader({ group, isOwner, onUpdate, onDelete, onLeave }: any) {
@@ -10,7 +10,15 @@ export default function GroupHeader({ group, isOwner, onUpdate, onDelete, onLeav
       </header>
       <div className="mb-8">
         <div className="flex justify-between items-start mb-2">
-          <h2 className="text-3xl font-black text-gray-900 leading-tight">{group.name}</h2>
+          {/* 그룹 이름과 배지를 같은 줄에 배치 */}
+          <div className="flex items-center gap-2">
+            <h2 className="text-3xl font-black text-gray-900 leading-tight">{group.name}</h2>
+            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black shrink-0 ${isOwner ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-blue-50 text-blue-600 border border-blue-100'
+              }`}>
+              {isOwner ? '👑 방장' : '👤 멤버'}
+            </span>
+          </div>
+
           <div className="flex gap-2">
             {isOwner ? (
               <>
