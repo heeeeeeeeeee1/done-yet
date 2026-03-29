@@ -1,19 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import TeamCalendar from '@/components/calendar/TeamCalendar';
 import GroupHeader from './GroupHeader';
-import VerificationFeed from './VerificationFeed';
-import { useGroupActions } from '@/hooks/useGroupActions';
+import ChallengeList from './ChallengeList';
 import { useChallengeActions } from '@/hooks/useChallengeActions';
 import WeeklyProgressBanner from './WeeklyProgressBanner';
-import ChallengeList from './ChallengeList';
-// ✅ 새 컴포넌트 임포트
-import InviteCodeSection from './InviteCodeSection';
+import TeamCalendar from '@/components/calendar/TeamCalendar';
+import VerificationFeed from './VerificationFeed';
+import Link from 'next/link';
+import { useGroupActions } from '@/hooks/useGroupActions';
 
 interface GroupDetailProps {
   group: any;
@@ -34,109 +32,149 @@ export default function GroupDetailClient({
   currentUserId,
   currentUserNickname
 }: GroupDetailProps) {
-  const router = useRouter();
   const supabase = createClient();
-
   const [challenges, setChallenges] = useState(initialChallenges);
+  const [nudgeData, setNudgeData] = useState<{ sender: string } | null>(null);
 
-  // 마운트 시 최신 챌린지 목록 동기화
-  useEffect(() => {
-    const fetchLatestChallenges = async () => {
-      const { data } = await supabase
-        .from('challenges')
-        .select('*')
-        .eq('group_id', group.id)
-        .order('created_at', { ascending: false });
+  // 그룹 및 챌린지 액션 훅 연결
+  const { handleUpdateGroup, handleDeleteGroup, handleLeaveGroup } = useGroupActions(group, currentUserId);
+  const { handleUpdateChallenge, handleDeleteChallenge, handleNudge } = useChallengeActions(currentUserNickname);
 
-      if (data) setChallenges(data);
-    };
-
-    fetchLatestChallenges();
-  }, [group.id, supabase]);
-
-  const groupActions = useGroupActions(group, currentUserId);
-  const { handleUpdateChallenge, handleDeleteChallenge } = useChallengeActions(currentUserNickname);
-
-  // 실시간 브로드캐스트 리스너 (타 멤버 변경 감지)
+  // 1. 실시간 데이터 동기화 및 리스너 설정
   useEffect(() => {
     const channel = supabase
       .channel(`group-changes-${group.id}`)
+      .on('broadcast', { event: 'nudge_event' }, ({ payload }) => {
+        if (payload.targetUserId === currentUserId) {
+          setNudgeData({ sender: payload.senderNickname });
+          setTimeout(() => setNudgeData(null), 3000);
+        }
+      })
       .on('broadcast', { event: 'challenge_event' }, async ({ payload }) => {
-        toast(`${payload.nickname} 님이 '${payload.title}' 목표를 ${payload.action}했습니다!`, {
-          icon: payload.action === '수정' ? '🔄' : '🗑️',
-        });
-
-        const { data: updatedChallenges } = await supabase
+        toast(`${payload.nickname}님이 목표를 ${payload.action}했습니다!`);
+        const { data } = await supabase
           .from('challenges')
           .select('*')
           .eq('group_id', group.id)
           .order('created_at', { ascending: false });
-
-        if (updatedChallenges) setChallenges(updatedChallenges);
+        if (data) setChallenges(data);
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [group.id, supabase]);
+  }, [group.id, currentUserId, supabase]);
+
+  // 2. 각 챌린지별 이번 주 달성 횟수 계산
+  const challengesWithProgress = challenges.map((challenge: any) => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+
+    const currentCount = verifications.filter((v: any) => {
+      const proofDate = new Date(v.created_at || v.proof_date);
+      return v.challenge_id === challenge.id && proofDate >= monday;
+    }).length;
+
+    return {
+      ...challenge,
+      current_count: currentCount,
+    };
+  });
 
   return (
-    <div className="pb-20">
-      {/* 1. 상단 네비게이션 및 설정 메뉴 */}
+    <div className="pb-20 bg-gray-50 min-h-screen relative overflow-hidden">
+      {/* 👀 재촉 애니메이션 오버레이 */}
+      <AnimatePresence>
+        {nudgeData && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0, rotate: -45 }}
+            animate={{
+              opacity: 1,
+              scale: [1, 1.3, 1],
+              rotate: 0,
+              y: [0, -20, 0]
+            }}
+            exit={{ opacity: 0, scale: 2, filter: "blur(10px)" }}
+            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+          >
+            <div className="bg-white/80 backdrop-blur-md p-10 rounded-[50px] shadow-2xl border-4 border-amber-400 flex flex-col items-center">
+              <motion.span
+                animate={{ rotate: [0, -15, 15, -15, 0] }}
+                transition={{ repeat: Infinity, duration: 0.6 }}
+                className="text-9xl mb-4"
+              >
+                👀
+              </motion.span>
+              <p className="text-xl font-black text-gray-900 tracking-tighter text-center">
+                {nudgeData.sender}님이<br />지켜보고 있다!
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 초대 기능이 통합된 헤더 */}
       <GroupHeader
         group={group}
         isOwner={isOwner}
-        onLeave={groupActions.handleLeaveGroup}
-        onDelete={groupActions.handleDeleteGroup}
+        onUpdate={handleUpdateGroup}
+        onDelete={handleDeleteGroup}
+        onLeave={handleLeaveGroup}
       />
 
-      {/* 2. 초대 코드 섹션 추가 (헤더 바로 아래 배치) */}
-      <InviteCodeSection inviteCode={group.invite_code} />
+      <section className="px-6 mb-4">
+        <div className="flex justify-end mb-2">
+          <p className="text-[11px] font-bold text-gray-400">{currentUserNickname}님 반가워요!</p>
+        </div>
 
-      {/* 3. 이번 주 진행 현황 */}
-      <section className="px-6 mb-8">
+        {/* 개인화된 주간 진행 배너 */}
         <WeeklyProgressBanner
           verifications={verifications}
           currentUserId={currentUserId}
-          weeklyTarget={challenges[0]?.weekly_target ?? 3}
+          challenges={challenges}
         />
       </section>
 
-      {/* 4. 팀 전체 챌린지 캘린더 */}
-      <section className="px-6 mb-10">
-        <TeamCalendar verifications={verifications} memberCount={memberCount} />
-      </section>
-
-      {/* 5. 진행 중인 개별 도전 목록 */}
+      {/* 진행 중인 도전 목록 */}
       <section className="px-6 mb-10">
         <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="font-bold text-gray-800">진행 중인 도전</h3>
-          <Link href={`/groups/${group.id}/challenges/new`} className="text-xs font-bold text-blue-600">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-gray-800 text-sm">진행 중인 도전</h3>
+            <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-md font-bold">
+              {challenges.length}
+            </span>
+          </div>
+          <Link href={`/groups/${group.id}/challenges/new`} className="text-blue-600 font-bold text-xs hover:underline">
             + 새 도전 만들기
           </Link>
         </div>
 
-        {challenges.length > 0 ? (
-          <ChallengeList
-            challenges={challenges}
-            isOwner={isOwner}
-            currentUserId={currentUserId}
-            onUpdate={handleUpdateChallenge}
-            onDelete={handleDeleteChallenge}
-            groupId={group.id}
-          />
-        ) : (
-          <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-            <p className="text-sm text-gray-400 font-medium">아직 등록된 도전이 없습니다.</p>
-          </div>
-        )}
+        <ChallengeList
+          challenges={challengesWithProgress}
+          isOwner={isOwner}
+          currentUserId={currentUserId}
+          onUpdate={handleUpdateChallenge}
+          onDelete={handleDeleteChallenge}
+          onNudge={handleNudge}
+          groupId={group.id}
+        />
       </section>
 
-      {/* 6. 멤버들의 최근 인증샷 피드 */}
-      <section className="px-6">
-        <h3 className="font-bold text-gray-800 mb-4 px-1">멤버 활동</h3>
-        <VerificationFeed verifications={verifications} />
+      {/* 활동 현황 및 피드 */}
+      <section className="px-6 mb-10 space-y-10">
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-4 px-1 text-sm">팀 활동 현황</h3>
+          <TeamCalendar verifications={verifications} memberCount={memberCount} />
+        </div>
+
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-4 px-1 text-sm">최근 멤버 활동</h3>
+          <VerificationFeed verifications={verifications} />
+        </div>
       </section>
     </div>
   );

@@ -14,12 +14,11 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
   const [title, setTitle] = useState('');
   const [weeklyTarget, setWeeklyTarget] = useState(3);
   const [penaltyDesc, setPenaltyDesc] = useState('');
-  const [userNickname, setUserNickname] = useState(''); // 알림용 닉네임 상태 추가
+  const [nickname, setNickname] = useState(''); // 알림에 표시할 닉네임
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. 도전 정보와 유저 프로필 정보를 동시에 가져옴
       const { data: { user } } = await supabase.auth.getUser();
 
       const [challengeRes, profileRes] = await Promise.all([
@@ -36,7 +35,7 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
       setTitle(challengeRes.data.title);
       setWeeklyTarget(challengeRes.data.weekly_target);
       setPenaltyDesc(challengeRes.data.penalty_desc || '');
-      setUserNickname(profileRes.data?.nickname || '익명');
+      setNickname(profileRes.data?.nickname || '익명');
       setIsLoading(false);
     };
     fetchData();
@@ -46,7 +45,6 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
     e.preventDefault();
     if (!title.trim()) return toast.error('제목을 입력해주세요.');
 
-    // 1. DB 데이터 업데이트
     const { error } = await supabase
       .from('challenges')
       .update({
@@ -58,32 +56,25 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
 
     if (error) return toast.error('수정에 실패했습니다.');
 
-    // ✅ 2. 실시간 브로드캐스트 알림 전송
+    // ✅ 핵심 수정: 수정 성공 후 브로드캐스트 전송
     const channel = supabase.channel(`group-changes-${groupId}`);
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await channel.send({
           type: 'broadcast',
           event: 'challenge_event',
-          payload: {
-            nickname: userNickname,
-            action: '수정',
-            title: title.trim()
-          },
+          payload: { nickname, action: '수정', title: title.trim() },
         });
         supabase.removeChannel(channel);
       }
     });
 
     toast.success('수정 완료!');
-
-    // 3. 페이지 이동 (이전 코드의 window.location.href 대신 router 사용 가능)
     router.push(`/groups/${groupId}`);
     router.refresh();
   };
 
   if (isLoading) return <div className="p-10 text-center text-gray-400">로딩 중...</div>;
-
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white p-6 pb-20">
       <header className="flex items-center mb-8">
