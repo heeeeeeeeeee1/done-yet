@@ -1,4 +1,5 @@
 // src/components/common/GlobalNotification.tsx
+// GlobalNudgePopup과 같은 역할이라 삭제해도 될듯
 'use client';
 
 import { useEffect } from 'react';
@@ -38,7 +39,7 @@ export default function GlobalNotification() {
               // 전역 토스트 알림
               toast(`🔔 ${payload.senderNickname}님이 재촉했어요!`, {
                 icon: '👀',
-                duration: 4000,
+                duration: 3000,
                 style: {
                   borderRadius: '24px',
                   background: '#1a1a1a',
