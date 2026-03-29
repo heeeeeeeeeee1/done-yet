@@ -1,7 +1,6 @@
-// src/app/layout.tsx
 import './globals.css';
 import Footer from '@/components/Footer';
-import GlobalNotification from '@/components/common/GlobalNotification';
+import GlobalNudgePopup from '@/components/common/GlobalNudgePopup'; // ✅ 이름 변경 및 경로 확인
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
@@ -38,8 +37,8 @@ export default async function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-gray-50 text-gray-900 antialiased">
-        {/* 로그인 상태일 때만 전역 알림 리스너 활성화 */}
-        {user && <GlobalNotification />}
+        {/* 로그인 상태일 때만 전역 역동적 팝업 활성화 */}
+        {user && <GlobalNudgePopup />}
 
         <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
           <main className="flex-1 pb-24">
@@ -49,13 +48,16 @@ export default async function RootLayout({
           {user && <Footer />}
         </div>
 
-        {/* 토스트 컨테이너 */}
+        {/* 일반 안내용 토스트 컨테이너 (그대로 유지) */}
         <Toaster
           position="top-center"
           reverseOrder={false}
           toastOptions={{
-            // 전역 토스트 기본 스타일 설정
+            duration: 3000,
             className: 'font-bold text-sm',
+            style: {
+              borderRadius: '12px',
+            }
           }}
         />
       </body>
