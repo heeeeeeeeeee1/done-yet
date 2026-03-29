@@ -1,11 +1,11 @@
 // src/app/layout.tsx
 import './globals.css';
 import Footer from '@/components/Footer';
+import GlobalNotification from '@/components/common/GlobalNotification';
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 
-// 썸네일(OpenGraph) 메타데이터 복구
 export const metadata: Metadata = {
   title: '오늘했어? | 나만의 도전 관리',
   description: '매일의 도전을 기록하고 성장을 눈으로 확인하세요.',
@@ -16,7 +16,6 @@ export const metadata: Metadata = {
     siteName: 'Done Yet',
     images: [
       {
-        // 💡 절대 경로를 사용해야 카카오톡 등 외부에서 썸네일이 더 잘 뜹니다.
         url: 'https://done-yet.vercel.app/logo.png',
         width: 1200,
         height: 630,
@@ -38,15 +37,27 @@ export default async function RootLayout({
 
   return (
     <html lang="ko">
-      <body className="bg-gray-50">
+      <body className="bg-gray-50 text-gray-900 antialiased">
+        {/* 로그인 상태일 때만 전역 알림 리스너 활성화 */}
+        {user && <GlobalNotification />}
+
         <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
           <main className="flex-1 pb-24">
             {children}
           </main>
+
           {user && <Footer />}
         </div>
-        {/* 토스트 추가 */}
-        <Toaster position="top-center" reverseOrder={false} />
+
+        {/* 토스트 컨테이너 */}
+        <Toaster
+          position="top-center"
+          reverseOrder={false}
+          toastOptions={{
+            // 전역 토스트 기본 스타일 설정
+            className: 'font-bold text-sm',
+          }}
+        />
       </body>
     </html>
   );
