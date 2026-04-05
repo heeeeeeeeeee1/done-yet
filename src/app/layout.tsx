@@ -50,9 +50,9 @@ export default async function RootLayout({
 
         <Toaster
           position="top-center"
-          reverseOrder={false}
+          reverseOrder={true}
           toastOptions={{
-            duration: 3000,
+            duration: 1000,
             className: 'font-bold text-sm',
             style: {
               borderRadius: '12px',

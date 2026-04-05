@@ -1,6 +1,19 @@
 // src/components/groups/ChallengeList.tsx
 'use client';
 
+import { motion } from 'framer-motion'; // ✅ 이 줄이 누락되어 에러가 발생했습니다.
+import { sendPushNotification, triggerFeedbackVibration } from '@/lib/native-bridge';
+
+interface ChallengeListProps {
+  challenges: any[];
+  isOwner: boolean;
+  currentUserId: string;
+  onUpdate: (challenge: any, groupId: string) => void;
+  onDelete: (id: string, groupId: string, title: string) => void;
+  onNudge: (targetUserId: string, senderNickname: string, groupId: string) => void;
+  groupId: string;
+}
+
 export default function ChallengeList({
   challenges,
   isOwner,
@@ -9,13 +22,28 @@ export default function ChallengeList({
   onDelete,
   onNudge,
   groupId
-}: any) {
+}: ChallengeListProps) {
   return (
     <div className="space-y-3">
       {challenges.map((c: any) => {
-        // ✅ 수정: 조인된 users 객체에서 nickname을 가져옵니다.
         const displayName = c.users?.nickname || '멤버';
         const progressPercent = Math.min(Math.round((c.current_count / c.weekly_target) * 100), 100);
+        const isCompleted = c.current_count >= c.weekly_target;
+
+        const handleNudgeClick = () => {
+          // 1. 앱 내 실시간 팝업 브로드캐스트
+          onNudge(c.user_id, displayName, groupId);
+
+          // 2. Expo 외부 푸시 알림 요청
+          sendPushNotification(
+            c.user_id,
+            '🥊 빨리 하라고!!',
+            `${displayName}님, 팀원이 당신의 인증을 기다리고 있어요!`
+          );
+
+          // 3. 햅틱 진동 피드백
+          triggerFeedbackVibration();
+        };
 
         return (
           <div key={c.id} className="p-5 bg-white rounded-2xl border border-gray-100 flex justify-between items-center shadow-sm">
@@ -27,6 +55,7 @@ export default function ChallengeList({
                 <h4 className="font-bold text-gray-800 truncate">{c.title}</h4>
               </div>
 
+              {/* 진행 바 섹션 */}
               <div className="mt-2 mb-3">
                 <div className="flex justify-between items-end mb-1">
                   <span className="text-xs font-black text-blue-600">
@@ -34,18 +63,22 @@ export default function ChallengeList({
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]"
-                    style={{ width: `${progressPercent}%` }}
+                  {/* ✅ motion.div 사용 */}
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercent}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className="h-full bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.3)]"
                   />
                 </div>
               </div>
 
               <div className="flex items-center gap-3 text-[10px] font-bold">
                 {(isOwner || c.user_id === currentUserId) && (
-                  <div className="flex gap-2">
-                    <button onClick={() => onUpdate(c, groupId)} className="text-gray-400 underline decoration-gray-200">수정</button>
-                    <button onClick={() => onDelete(c.id, groupId, c.title)} className="text-red-300 underline decoration-red-100">삭제</button>
+                  <div className="flex gap-2 text-gray-400">
+                    <button onClick={() => onUpdate(c, groupId)} className="hover:text-blue-500 transition-colors">수정</button>
+                    <span className="text-gray-200">|</span>
+                    <button onClick={() => onDelete(c.id, groupId, c.title)} className="hover:text-red-400 transition-colors">삭제</button>
                   </div>
                 )}
               </div>
@@ -54,14 +87,17 @@ export default function ChallengeList({
             <div className="flex items-center gap-2">
               {c.user_id !== currentUserId && (
                 <button
-                  onClick={() => onNudge(c.user_id, displayName, groupId)}
-                  className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center border border-amber-100 shadow-sm text-lg hover:scale-110 active:scale-95 transition-all"
+                  onClick={handleNudgeClick}
+                  className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center border border-amber-100 shadow-sm text-lg hover:scale-110 active:scale-90 transition-all"
                 >
                   👀
                 </button>
               )}
-              <div className="w-10 h-10 bg-white rounded-xl flex flex-col items-center justify-center border border-gray-100 shadow-sm">
-                <span className={`text-lg ${c.current_count >= c.weekly_target ? 'grayscale-0' : 'grayscale opacity-30'}`}>🔥</span>
+              <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center border shadow-sm transition-all ${isCompleted ? 'bg-orange-50 border-orange-100' : 'bg-gray-50 border-gray-100'
+                }`}>
+                <span className={`text-lg ${isCompleted ? 'grayscale-0' : 'grayscale opacity-30'}`}>
+                  🔥
+                </span>
               </div>
             </div>
           </div>

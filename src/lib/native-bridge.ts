@@ -32,3 +32,14 @@ export const triggerStrongVibration = () => {
 export const triggerFeedbackVibration = () => {
   sendToNative('VIBRATE_FEEDBACK');
 };
+
+/* Expo 외부 푸시 알림 발송 요청
+ * 앱이 꺼져있을 때 상대방에게 실제 푸시를 보내기 위해 Native(Expo)에 요청합니다.
+ */
+export const sendPushNotification = (targetUserId: string, title: string, body: string) => {
+  sendToNative('SEND_PUSH_NOTIFICATION', {
+    targetUserId,
+    title,
+    body
+  });
+};
