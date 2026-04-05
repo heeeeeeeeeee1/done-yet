@@ -1,11 +1,18 @@
 import './globals.css';
 import Footer from '@/components/Footer';
-import GlobalNudgePopup from '@/components/common/GlobalNudgePopup'; // ✅ 이름 변경 및 경로 확인
+import NativeBridge from '@/components/common/NativeBridge';
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
+import dynamic from 'next/dynamic'; // ✅ 동적 임포트 추가
+
+// ✅ 팝업 컴포넌트를 지연 로딩하여 초기 화면 렌더링 가속화
+const GlobalNudgePopup = dynamic(() => import('@/components/common/GlobalNudgePopup'), { 
+  ssr: false 
+});
 
 export const metadata: Metadata = {
+  // ... (기존 설정 유지)
   title: '오늘했어? | 나만의 도전 관리',
   description: '매일의 도전을 기록하고 성장을 눈으로 확인하세요.',
   openGraph: {
@@ -37,8 +44,13 @@ export default async function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-gray-50 text-gray-900 antialiased">
-        {/* 로그인 상태일 때만 전역 역동적 팝업 활성화 */}
-        {user && <GlobalNudgePopup />}
+        {/* 앱 브릿지 및 전역 컴포넌트 활성화 */}
+        {user && (
+          <>
+            <NativeBridge />
+            <GlobalNudgePopup />
+          </>
+        )}
 
         <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
           <main className="flex-1 pb-24">

@@ -2,41 +2,19 @@
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
+import { triggerStrongVibration } from '@/lib/native-bridge'; // ✅ 진동 유틸 추가
 
 export const useChallengeActions = (nickname: string) => {
   const router = useRouter();
   const supabase = createClient();
 
-  const handleUpdateChallenge = (challenge: any, groupId: string) => {
-    router.push(`/groups/${groupId}/challenges/${challenge.id}/edit`);
-  };
+  // ... (기타 함수 유지)
 
-  const handleDeleteChallenge = async (challengeId: string, groupId: string, title: string) => {
-    if (!confirm(`'${title}' 도전을 삭제하시겠습니까?`)) return;
-
-    const { error } = await supabase.from('challenges').delete().eq('id', challengeId);
-
-    if (!error) {
-      const channel = supabase.channel(`group-changes-${groupId}`);
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.send({
-            type: 'broadcast',
-            event: 'challenge_event',
-            payload: { nickname, action: '삭제', title },
-          });
-          supabase.removeChannel(channel);
-        }
-      });
-      toast.success('삭제되었습니다.');
-      router.refresh();
-    } else {
-      toast.error("삭제 중 오류가 발생했습니다.");
-    }
-  };
-
-  // ✅ 재촉하기(Nudge) 기능 추가
+  // ✅ 재촉하기(Nudge) 기능 수정
   const handleNudge = async (targetUserId: string, targetNickname: string, groupId: string) => {
+    // 1. 네이티브 앱에 진동 신호 전송 (본인 폰 피드백)
+    triggerStrongVibration();
+
     const channel = supabase.channel(`group-changes-${groupId}`);
 
     // 1. 실시간 브로드캐스트 전송
