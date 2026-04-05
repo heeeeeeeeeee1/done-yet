@@ -11,26 +11,28 @@ export default async function ProfileContent({ userId }: { userId: string }) {
   twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
   const dateLimit = twoMonthsAgo.toISOString();
 
+  // ✅ 2단계: select('*') 대신 필요한 컬럼만 명시 (성능 개선의 핵심)
   const [verificationsRes, groupsRes, challengesRes] = await Promise.all([
-    // 내 최근 2개월 인증 내역 (데이터 다이어트)
+    // 캘린더 점 표시에 필요한 최소 데이터만 조회
     supabase
       .from('verifications')
-      .select('*')
+      .select('id, proof_date')
       .eq('user_id', userId)
       .gte('created_at', dateLimit),
 
-    // 내가 참여 중인 그룹 목록
+    // 참여 중인 그룹의 ID와 이름만 조회
     supabase
       .from('group_members')
-      .select('groups(*)')
+      .select('groups(id, name)')
       .eq('user_id', userId),
 
-    // 내가 생성한 도전 목록
+    // 진행 중인 도전 정보 (최근 10개로 제한)
     supabase
       .from('challenges')
-      .select('*, groups(name)')
+      .select('id, title, weekly_target, group_id, groups(name)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+      .limit(10)
   ]);
 
   const verifications = verificationsRes.data || [];
@@ -39,7 +41,7 @@ export default async function ProfileContent({ userId }: { userId: string }) {
 
   return (
     <div className="flex flex-col gap-8 p-6 pt-0">
-      {/* 1. 내 도전 달력 */}
+      {/* 1. 나의 도전 달력 섹션 */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-1">
           <h3 className="font-black text-gray-800 text-sm">나의 도전 달력</h3>
@@ -52,7 +54,7 @@ export default async function ProfileContent({ userId }: { userId: string }) {
         </div>
       </section>
 
-      {/* 2. 참여 중인 그룹 목록 */}
+      {/* 2. 참여 중인 그룹 목록 섹션 */}
       <section className="space-y-4">
         <h3 className="font-black text-gray-800 text-sm px-1">참여 중인 그룹</h3>
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -70,18 +72,18 @@ export default async function ProfileContent({ userId }: { userId: string }) {
             ))
           ) : (
             <div className="w-full py-8 bg-white rounded-2xl border border-dashed border-gray-200 text-center">
-              <p className="text-[11px] text-gray-400 font-medium font-black">참여 중인 그룹이 없습니다.</p>
+              <p className="text-[11px] text-gray-400 font-black">참여 중인 그룹이 없습니다.</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* 3. 내 도전 목록 */}
+      {/* 3. 진행 중인 나의 도전 섹션 */}
       <section className="space-y-4">
         <h3 className="font-black text-gray-800 text-sm px-1">진행 중인 나의 도전</h3>
         <div className="space-y-3">
           {myChallenges.length ? (
-            myChallenges.map((challenge) => (
+            myChallenges.map((challenge: any) => (
               <Link
                 key={challenge.id}
                 href={`/groups/${challenge.group_id}`}
@@ -103,7 +105,6 @@ export default async function ProfileContent({ userId }: { userId: string }) {
           ) : (
             <div className="py-12 bg-white rounded-2xl border border-dashed border-gray-200 text-center">
               <p className="text-xs text-gray-400 font-black">등록된 개인 도전이 없습니다.</p>
-              <p className="text-[10px] text-gray-300 mt-1">그룹에 접속해 새로운 도전을 시작해보세요!</p>
             </div>
           )}
         </div>
