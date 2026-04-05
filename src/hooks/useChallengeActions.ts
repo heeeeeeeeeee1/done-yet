@@ -2,62 +2,78 @@
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
+import { triggerStrongVibration } from '@/lib/native-bridge'; // ✅ 진동 유틸 추가
 
 export const useChallengeActions = (nickname: string) => {
   const router = useRouter();
   const supabase = createClient();
 
-  const handleUpdateChallenge = (challenge: any, groupId: string) => {
-    router.push(`/groups/${groupId}/challenges/${challenge.id}/edit`);
-  };
+  // 1. 챌린지 업데이트 로직 (복구)
+  const handleUpdateChallenge = async (challengeId: string, updates: any) => {
+    try {
+      const { error } = await supabase
+        .from('challenges')
+        .update(updates)
+        .eq('id', challengeId);
 
-  const handleDeleteChallenge = async (challengeId: string, groupId: string, title: string) => {
-    if (!confirm(`'${title}' 도전을 삭제하시겠습니까?`)) return;
-
-    const { error } = await supabase.from('challenges').delete().eq('id', challengeId);
-
-    if (!error) {
-      const channel = supabase.channel(`group-changes-${groupId}`);
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.send({
-            type: 'broadcast',
-            event: 'challenge_event',
-            payload: { nickname, action: '삭제', title },
-          });
-          supabase.removeChannel(channel);
-        }
-      });
-      toast.success('삭제되었습니다.');
+      if (error) throw error;
+      toast.success('챌린지가 업데이트되었습니다!');
       router.refresh();
-    } else {
-      toast.error("삭제 중 오류가 발생했습니다.");
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('업데이트에 실패했습니다.');
     }
   };
 
-  // ✅ 재촉하기(Nudge) 기능 추가
+  // 2. 챌린지 삭제 로직 (복구)
+  const handleDeleteChallenge = async (challengeId: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('challenges')
+        .delete()
+        .eq('id', challengeId);
+
+      if (error) throw error;
+      toast.success('챌린지가 삭제되었습니다.');
+      router.refresh();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('삭제에 실패했습니다.');
+    }
+  };
+
+  // 3. ✅ 재촉하기(Nudge) 기능 수정 (진동 추가)
   const handleNudge = async (targetUserId: string, targetNickname: string, groupId: string) => {
+    // 네이티브 앱에 진동 신호 전송 (본인 폰 피드백)
+    triggerStrongVibration();
+
     const channel = supabase.channel(`group-changes-${groupId}`);
 
-    // 1. 실시간 브로드캐스트 전송
-    await channel.send({
-      type: 'broadcast',
-      event: 'nudge_event',
-      payload: {
-        senderNickname: nickname,
-        targetUserId
-      },
-    });
+    try {
+      // 실시간 브로드캐스트 전송
+      await channel.send({
+        type: 'broadcast',
+        event: 'nudge_event',
+        payload: {
+          senderNickname: nickname,
+          targetUserId
+        },
+      });
 
-    // 2. DB 알림 저장 (미접속 시 확인용)
-    await supabase.from('notifications').insert({
-      user_id: targetUserId,
-      group_id: groupId,
-      type: 'nudge',
-      message: `${nickname}님이 당신을 지켜보고 있습니다... 👀`,
-    });
+      // DB 알림 저장
+      await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        group_id: groupId,
+        type: 'nudge',
+        message: `${nickname}님이 당신을 지켜보고 있습니다... 👀`,
+      });
 
-    toast.success(`${targetNickname}님에게 눈치를 줬습니다! 👀`, { icon: '👀' });
+      toast.success(`${targetNickname}님에게 눈치를 줬습니다! 👀`, { icon: '👀' });
+    } catch (error) {
+      console.error('Nudge error:', error);
+    }
   };
 
   return { handleUpdateChallenge, handleDeleteChallenge, handleNudge };
