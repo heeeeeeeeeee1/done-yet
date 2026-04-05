@@ -24,7 +24,7 @@ export default function VerificationFeed({ verifications }: { verifications: any
           
           <div className="aspect-square rounded-2xl bg-gray-100 overflow-hidden shadow-inner relative">
             <Image 
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${v.image_url}`}
+              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/render/image/public/photos/${v.image_url}?width=600&quality=80`}
               className="object-cover"
               alt="인증샷"
               fill
