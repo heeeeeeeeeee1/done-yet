@@ -1,11 +1,10 @@
-// src/components/groups/GroupDetailClient.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import dynamic from 'next/dynamic'; // ✅ 동적 임포트 추가
+import dynamic from 'next/dynamic';
 import GroupHeader from './GroupHeader';
 import ChallengeList from './ChallengeList';
 import { useChallengeActions } from '@/hooks/useChallengeActions';
@@ -13,15 +12,15 @@ import WeeklyProgressBanner from './WeeklyProgressBanner';
 import Link from 'next/link';
 import { useGroupActions } from '@/hooks/useGroupActions';
 
-// ✅ 무거운 컴포넌트들을 dynamic import로 전환하여 초기 로딩 속도 개선
 const TeamCalendar = dynamic(() => import('@/components/calendar/TeamCalendar'), {
   ssr: false,
-  loading: () => <div className="h-32 w-full animate-pulse bg-gray-100 rounded-2xl" /> // 로딩 스켈레톤
+  loading: () => <div className="h-32 w-full animate-pulse bg-gray-100 rounded-2xl" />
 });
 
 const VerificationFeed = dynamic(() => import('./VerificationFeed'), {
   ssr: false,
-  loading: () => <div className="h-60 w-full animate-pulse bg-gray-50 rounded-3xl" /> // 로딩 스켈레톤
+  // 로딩 스켈레톤의 높이를 이미지 높이와 비슷하게 맞춰서 안정감을 줌
+  loading: () => <div className="min-h-[200px] w-full animate-pulse bg-gray-50 rounded-3xl" />
 });
 
 export default function GroupDetailClient({
@@ -79,7 +78,7 @@ export default function GroupDetailClient({
   });
 
   return (
-    <div className="pb-20 bg-gray-50 min-h-screen relative overflow-hidden">
+    <div className="pb-20 bg-gray-50 min-h-screen relative">
       <AnimatePresence>
         {nudgeData && (
           <motion.div initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
@@ -100,7 +99,6 @@ export default function GroupDetailClient({
       <section className="px-6 mb-4">
         <div className="bg-white p-4 mb-4 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="font-bold text-gray-800 mb-2 text-sm">팀 활동 현황</h3>
-          {/* ✅ 지연 로딩되는 캘린더 컴포넌트 */}
           <TeamCalendar verifications={verifications} memberCount={memberCount} />
         </div>
         <div className="flex justify-between items-center mb-4 px-1">
@@ -113,7 +111,6 @@ export default function GroupDetailClient({
       <section className="px-6 space-y-10">
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
           <h3 className="font-bold text-gray-800 mb-4 text-sm">최근 멤버 활동</h3>
-          {/* ✅ 지연 로딩되는 피드 컴포넌트 */}
           <VerificationFeed verifications={verifications} />
         </div>
       </section>
