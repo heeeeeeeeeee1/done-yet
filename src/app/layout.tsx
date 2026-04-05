@@ -4,15 +4,8 @@ import NativeBridge from '@/components/common/NativeBridge';
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
-import dynamic from 'next/dynamic'; // ✅ 동적 임포트 추가
-
-// ✅ 팝업 컴포넌트를 지연 로딩하여 초기 화면 렌더링 가속화
-const GlobalNudgePopup = dynamic(() => import('@/components/common/GlobalNudgePopup'), { 
-  ssr: false 
-});
 
 export const metadata: Metadata = {
-  // ... (기존 설정 유지)
   title: '오늘했어? | 나만의 도전 관리',
   description: '매일의 도전을 기록하고 성장을 눈으로 확인하세요.',
   openGraph: {
@@ -44,13 +37,8 @@ export default async function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-gray-50 text-gray-900 antialiased">
-        {/* 앱 브릿지 및 전역 컴포넌트 활성화 */}
-        {user && (
-          <>
-            <NativeBridge />
-            <GlobalNudgePopup />
-          </>
-        )}
+        {/* 앱 브릿지 활성화 (유저가 있을 때만) */}
+        {user && <NativeBridge />}
 
         <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
           <main className="flex-1 pb-24">
@@ -60,7 +48,6 @@ export default async function RootLayout({
           {user && <Footer />}
         </div>
 
-        {/* 일반 안내용 토스트 컨테이너 (그대로 유지) */}
         <Toaster
           position="top-center"
           reverseOrder={false}

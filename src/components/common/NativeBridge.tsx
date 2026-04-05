@@ -2,6 +2,12 @@
 
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import dynamic from 'next/dynamic';
+
+// ✅ 서버 컴포넌트인 layout 대신 클라이언트 컴포넌트인 여기서 지연 로딩 수행
+const GlobalNudgePopup = dynamic(() => import('@/components/common/GlobalNudgePopup'), {
+  ssr: false
+});
 
 export default function NativeBridge() {
   const supabase = createClient();
@@ -14,7 +20,6 @@ export default function NativeBridge() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // 프로필 테이블(profiles)에 푸시 토큰 저장
-        // (profiles 테이블에 push_token 컬럼이 있다고 가정)
         const { error } = await supabase
           .from('profiles')
           .update({ push_token: token })
@@ -28,15 +33,17 @@ export default function NativeBridge() {
       }
     };
 
-    // 2. 앱 측에 웹뷰 로드 완료를 알림 (필요 시 토큰 요청)
+    // 2. 앱 측에 웹뷰 로드 완료를 알림
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'WEBVIEW_READY' }));
     }
 
     return () => {
+      // @ts-ignore
       delete window.setPushToken;
     };
   }, [supabase]);
 
-  return null; // UI는 없는 유틸리티 컴포넌트
+  // UI가 없는 유틸리티 컴포넌트지만, 지연 로딩된 팝업을 함께 렌더링함
+  return <GlobalNudgePopup />;
 }
