@@ -55,8 +55,8 @@ export const useChallengeActions = (nickname: string) => {
     toast.dismiss();
     triggerStrongVibration();
 
-    // 단발성 메시지 전송을 위한 채널 생성
-    const channel = supabase.channel(`nudge-${groupId}-${Date.now()}`);
+    // GlobalNudgePopup이 구독 중인 채널명과 일치시킴
+    const channel = supabase.channel(`group-changes-${groupId}`);
 
     try {
       channel.subscribe(async (status) => {
@@ -81,8 +81,8 @@ export const useChallengeActions = (nickname: string) => {
             })
           ]);
 
-          // 전송 완료 후 채널 구독 해제
-          supabase.removeChannel(channel);
+          // 전송 후 채널 제거 (중복 구독 방지)
+          setTimeout(() => supabase.removeChannel(channel), 1000);
         }
       });
 
