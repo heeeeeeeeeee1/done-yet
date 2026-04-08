@@ -4,6 +4,7 @@ import NativeBridge from '@/components/common/NativeBridge';
 import { createClient } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
+import GlobalNudgePopup from '@/components/common/GlobalNudgePopup';
 
 export const metadata: Metadata = {
   title: '오늘했어? | 나만의 도전 관리',
@@ -37,8 +38,13 @@ export default async function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-gray-50 text-gray-900 antialiased">
-        {/* 앱 브릿지 활성화 (유저가 있을 때만) */}
-        {user && <NativeBridge />}
+        {/* ✅ 앱 브릿지 및 글로벌 팝업 (유저 세션 있을 때만 활성화) */}
+        {user && (
+          <>
+            <NativeBridge />
+            <GlobalNudgePopup />
+          </>
+        )}
 
         <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
           <main className="flex-1 pb-24">
@@ -54,9 +60,7 @@ export default async function RootLayout({
           toastOptions={{
             duration: 1000,
             className: 'font-bold text-sm',
-            style: {
-              borderRadius: '12px',
-            }
+            style: { borderRadius: '12px' }
           }}
         />
       </body>
