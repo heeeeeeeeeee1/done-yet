@@ -9,7 +9,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 export const useChallengeActions = (
   nickname: string,
   // ✅ GroupDetailClient가 이미 구독 중인 채널 ref를 받아서 재사용
-  channelRef?: RefObject<RealtimeChannel | null>
+  channelRef?: RefObject<RealtimeChannel | null>,
+  onChallengeDeleted?: (challengeId: string) => void
 ) => {
   const router = useRouter();
   const supabase = createClient();
@@ -79,12 +80,13 @@ export const useChallengeActions = (
 
       toast.success('챌린지가 삭제되었습니다.');
 
+      // 로컬 state 즉시 반영
+      onChallengeDeleted?.(challengeId);
+
       // ✅ 그룹원 실시간 토스트
       if (groupId && title) {
         await broadcastChallengeEvent('삭제', groupId, title);
       }
-
-      router.refresh();
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('삭제 권한이 없거나 오류가 발생했습니다.');

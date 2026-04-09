@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, use, useEffect } from 'react'; // useEffect 추가
+import { useState, use, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/common/BackButton';
@@ -10,8 +10,9 @@ export default function NewChallengePage({ params }: { params: Promise<{ id: str
   
   const [title, setTitle] = useState('');
   const [weeklyTarget, setWeeklyTarget] = useState(3);
-  const [userId, setUserId] = useState<string | null>(null); // 유저 ID 상태 추가
-  
+  const [userId, setUserId] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -26,12 +27,14 @@ export default function NewChallengePage({ params }: { params: Promise<{ id: str
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (isSubmittingRef.current) return;
+
     if (!userId) {
       alert('로그인이 필요한 서비스입니다.');
       return;
     }
-    
+
+    isSubmittingRef.current = true;
     const { error } = await supabase.from('challenges').insert({
       group_id: id, 
       title,
@@ -41,8 +44,9 @@ export default function NewChallengePage({ params }: { params: Promise<{ id: str
     });
 
     if (error) {
-      console.error('에러 상세:', error); // 콘솔에서 에러 원인 확인 가능
+      console.error('에러 상세:', error);
       alert(`챌린지 생성 실패: ${error.message}`);
+      isSubmittingRef.current = false;
     } else {
       router.push(`/groups/${id}`);
     }
