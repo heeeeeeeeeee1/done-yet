@@ -3,15 +3,19 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { triggerStrongVibration } from '@/lib/native-bridge';
+import type { MutableRefObject } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
-export const useChallengeActions = (nickname: string) => {
+export const useChallengeActions = (
+  nickname: string,
+  // ✅ GroupDetailClient가 이미 구독 중인 채널 ref를 받아서 재사용
+  channelRef?: MutableRefObject<RealtimeChannel | null>
+) => {
   const router = useRouter();
   const supabase = createClient();
 
   /**
    * 1. 챌린지 수정 페이지 이동
-   * 기존: DB를 직접 update 하려 함
-   * 변경: 수정 버튼 클릭 시 해당 챌린지의 수정 페이지로 이동시킵니다.
    */
   const handleUpdateChallenge = (challenge: any, groupId: string) => {
     const challengeId = typeof challenge === 'object' ? challenge.id : challenge;
@@ -23,9 +27,7 @@ export const useChallengeActions = (nickname: string) => {
   };
 
   /**
-   * 2. 챌린지 삭제 로직
-   * ChallengeList.tsx에서 (c.id, groupId, c.title) 순으로 인자를 보내므로
-   * 그에 맞춰 매개변수를 구성합니다.
+   * 2. 챌린지 삭제
    */
   const handleDeleteChallenge = async (challengeId: string, groupId?: string, title?: string) => {
     const displayTitle = title ? `'${title}' ` : '';
@@ -48,59 +50,61 @@ export const useChallengeActions = (nickname: string) => {
   };
 
   /**
-   * 3. 재촉하기(Nudge) 기능
-   * DB 스키마에 컬럼명이 'content'가 아니라 'message'임을 반영했습니다.
+   * 3. 재촉하기(Nudge)
+   *
+   * ✅ 핵심 변경:
+   *    - 새 채널을 만들어 브로드캐스트하면 GroupDetailClient의 구독자가 수신 못 함
+   *    - channelRef로 이미 SUBSCRIBED 상태인 채널을 받아서 그 채널로 send()
+   *    - DB 저장(notifications)은 그대로 유지 → 오프라인 사용자도 나중에 확인 가능
    */
   const handleNudge = async (targetUserId: string, targetNickname: string, groupId: string) => {
     toast.dismiss();
     triggerStrongVibration();
 
-    // GlobalNudgePopup이 구독 중인 채널명과 일치시킴
-    const channel = supabase.channel(`group-changes-${groupId}`);
+    const channel = channelRef?.current;
 
     try {
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await Promise.all([
-            // 실시간 브로드캐스트 전송
-            channel.send({
-              type: 'broadcast',
-              event: 'nudge_event',
-              payload: {
-                senderNickname: nickname,
-                targetUserId
-              },
-            }),
-            // 알림 테이블 저장 (스키마의 message 컬럼 사용)
-            supabase.from('notifications').insert({
-              user_id: targetUserId,
-              group_id: groupId,
-              type: 'nudge',
-              message: `${nickname}님이 재촉했습니다! 🥊`, // 👈 content 대신 message 사용
-              is_read: false
-            })
-          ]);
+      // ✅ 실시간: 이미 구독된 채널로 브로드캐스트 (채널 재생성 X)
+      if (channel) {
+        await channel.send({
+          type: 'broadcast',
+          event: 'nudge_event',
+          payload: {
+            senderNickname: nickname,
+            targetUserId,
+          },
+        });
+      } else {
+        // 채널이 아직 준비 안 된 엣지케이스 — 콘솔 경고만, 실패 처리는 하지 않음
+        console.warn('[handleNudge] 채널이 아직 준비되지 않았습니다. DB 알림만 저장합니다.');
+      }
 
-          // 전송 후 채널 제거 (중복 구독 방지)
-          setTimeout(() => supabase.removeChannel(channel), 1000);
-        }
+      // ✅ 오프라인 대비: notifications 테이블에 저장 (앱 재진입 시 팝업 표시)
+      const { error: dbError } = await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        group_id: groupId,
+        type: 'nudge',
+        message: `${nickname}님이 재촉했습니다! 🥊`,
+        is_read: false,
       });
+
+      if (dbError) {
+        console.error('[handleNudge] DB 저장 실패:', dbError);
+      }
 
       toast.success(`${targetNickname}님에게 재촉하기를 보냈어요! 🥊`, {
         duration: 1000,
-        position: 'top-center'
+        position: 'top-center',
       });
-
     } catch (error) {
       console.error('Nudge error:', error);
       toast.error('재촉하기에 실패했습니다.');
-      if (channel) supabase.removeChannel(channel);
     }
   };
 
   return {
     handleUpdateChallenge,
     handleDeleteChallenge,
-    handleNudge
+    handleNudge,
   };
 };
