@@ -45,7 +45,8 @@ export default function GroupDetailClient({
   const { handleUpdateGroup, handleDeleteGroup, handleLeaveGroup } = useGroupActions(group, currentUserId);
   const { handleDeleteChallenge, handleNudge } = useChallengeActions(
     currentUserNickname,
-    channelRef
+    channelRef,
+    (deletedId) => setChallenges((prev: any[]) => prev.filter((c: any) => c.id !== deletedId))
   );
 
   // ✅ 앱 재진입 시 미읽 nudge 알림 불러와 팝업 표시
