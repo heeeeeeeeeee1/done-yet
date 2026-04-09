@@ -5,6 +5,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
+import BackButton from '@/components/common/BackButton';
 
 export default function EditChallengePage({ params }: { params: Promise<{ id: string; challengeId: string }> }) {
   const { id: groupId, challengeId } = use(params);
@@ -78,7 +79,7 @@ export default function EditChallengePage({ params }: { params: Promise<{ id: st
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white p-6 pb-20">
       <header className="flex items-center mb-8">
-        <button onClick={() => router.back()} className="mr-4 text-gray-400 p-2">◀</button>
+        <BackButton />
         <h1 className="text-xl font-black text-gray-900">도전 수정하기</h1>
       </header>
 

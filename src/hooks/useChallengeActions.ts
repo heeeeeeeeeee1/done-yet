@@ -15,7 +15,29 @@ export const useChallengeActions = (
   const supabase = createClient();
 
   /**
+   * 공통 헬퍼: 수정/삭제 시 같은 그룹원에게 실시간 토스트 브로드캐스트
+   */
+  const broadcastChallengeEvent = async (
+    action: '수정' | '삭제',
+    groupId: string,
+    challengeTitle: string
+  ) => {
+    const channel = channelRef?.current;
+    if (!channel) {
+      console.warn('[broadcastChallengeEvent] 채널이 아직 준비되지 않았습니다.');
+      return;
+    }
+    await channel.send({
+      type: 'broadcast',
+      event: 'challenge_event',
+      payload: { nickname, action, title: challengeTitle },
+    });
+  };
+
+  /**
    * 1. 챌린지 수정 페이지 이동
+   *    수정 완료 브로드캐스트는 edit 페이지 저장 후 호출 권장
+   *    (현재 구조상 페이지 이동 전 브로드캐스트 불가)
    */
   const handleUpdateChallenge = (challenge: any, groupId: string) => {
     const challengeId = typeof challenge === 'object' ? challenge.id : challenge;
@@ -28,8 +50,22 @@ export const useChallengeActions = (
 
   /**
    * 2. 챌린지 삭제
+   *    - ✅ challengeOwnerId !== currentUserId 이면 2차 방어로 차단
+   *    - ✅ 삭제 성공 시 그룹원에게 브로드캐스트
    */
-  const handleDeleteChallenge = async (challengeId: string, groupId?: string, title?: string) => {
+  const handleDeleteChallenge = async (
+    challengeId: string,
+    groupId?: string,
+    title?: string,
+    challengeOwnerId?: string,
+    currentUserId?: string
+  ) => {
+    // 본인 도전이 아니면 거부 (ChallengeList에서 버튼 노출 조건이 1차, 여기가 2차)
+    if (challengeOwnerId && currentUserId && challengeOwnerId !== currentUserId) {
+      toast.error('본인의 도전만 삭제할 수 있습니다.');
+      return;
+    }
+
     const displayTitle = title ? `'${title}' ` : '';
     if (!confirm(`${displayTitle}도전을 정말 삭제하시겠습니까?`)) return;
 
@@ -42,6 +78,12 @@ export const useChallengeActions = (
       if (error) throw error;
 
       toast.success('챌린지가 삭제되었습니다.');
+
+      // ✅ 그룹원 실시간 토스트
+      if (groupId && title) {
+        await broadcastChallengeEvent('삭제', groupId, title);
+      }
+
       router.refresh();
     } catch (error) {
       console.error('Delete error:', error);
@@ -51,11 +93,8 @@ export const useChallengeActions = (
 
   /**
    * 3. 재촉하기(Nudge)
-   *
-   * ✅ 핵심 변경:
-   *    - 새 채널을 만들어 브로드캐스트하면 GroupDetailClient의 구독자가 수신 못 함
-   *    - channelRef로 이미 SUBSCRIBED 상태인 채널을 받아서 그 채널로 send()
-   *    - DB 저장(notifications)은 그대로 유지 → 오프라인 사용자도 나중에 확인 가능
+   *    - ✅ 새 채널 생성 없이 channelRef의 기존 구독 채널로 send()
+   *    - ✅ DB 저장으로 오프라인 사용자도 재진입 시 팝업 확인 가능
    */
   const handleNudge = async (targetUserId: string, targetNickname: string, groupId: string) => {
     toast.dismiss();
@@ -64,22 +103,16 @@ export const useChallengeActions = (
     const channel = channelRef?.current;
 
     try {
-      // ✅ 실시간: 이미 구독된 채널로 브로드캐스트 (채널 재생성 X)
       if (channel) {
         await channel.send({
           type: 'broadcast',
           event: 'nudge_event',
-          payload: {
-            senderNickname: nickname,
-            targetUserId,
-          },
+          payload: { senderNickname: nickname, targetUserId },
         });
       } else {
-        // 채널이 아직 준비 안 된 엣지케이스 — 콘솔 경고만, 실패 처리는 하지 않음
-        console.warn('[handleNudge] 채널이 아직 준비되지 않았습니다. DB 알림만 저장합니다.');
+        console.warn('[handleNudge] 채널 미준비 — DB 알림만 저장합니다.');
       }
 
-      // ✅ 오프라인 대비: notifications 테이블에 저장 (앱 재진입 시 팝업 표시)
       const { error: dbError } = await supabase.from('notifications').insert({
         user_id: targetUserId,
         group_id: groupId,
@@ -88,9 +121,7 @@ export const useChallengeActions = (
         is_read: false,
       });
 
-      if (dbError) {
-        console.error('[handleNudge] DB 저장 실패:', dbError);
-      }
+      if (dbError) console.error('[handleNudge] DB 저장 실패:', dbError);
 
       toast.success(`${targetNickname}님에게 재촉하기를 보냈어요! 🥊`, {
         duration: 1000,
@@ -106,5 +137,6 @@ export const useChallengeActions = (
     handleUpdateChallenge,
     handleDeleteChallenge,
     handleNudge,
+    broadcastChallengeEvent,
   };
 };
