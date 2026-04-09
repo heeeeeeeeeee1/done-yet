@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ import { useChallengeActions } from '@/hooks/useChallengeActions';
 import WeeklyProgressBanner from './WeeklyProgressBanner';
 import Link from 'next/link';
 import { useGroupActions } from '@/hooks/useGroupActions';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const TeamCalendar = dynamic(() => import('@/components/calendar/TeamCalendar'), {
   ssr: false,
@@ -19,7 +20,6 @@ const TeamCalendar = dynamic(() => import('@/components/calendar/TeamCalendar'),
 
 const VerificationFeed = dynamic(() => import('./VerificationFeed'), {
   ssr: false,
-  // 로딩 스켈레톤의 높이를 이미지 높이와 비슷하게 맞춰서 안정감을 줌
   loading: () => <div className="min-h-[200px] w-full animate-pulse bg-gray-50 rounded-3xl" />
 });
 
@@ -36,9 +36,51 @@ export default function GroupDetailClient({
   const [challenges, setChallenges] = useState(initialChallenges);
   const [nudgeData, setNudgeData] = useState<{ sender: string } | null>(null);
 
-  const { handleUpdateGroup, handleDeleteGroup, handleLeaveGroup } = useGroupActions(group, currentUserId);
-  const { handleUpdateChallenge, handleDeleteChallenge, handleNudge } = useChallengeActions(currentUserNickname);
+  // ✅ 채널을 ref로 관리해서 hook에 안전하게 전달
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
+  const { handleUpdateGroup, handleDeleteGroup, handleLeaveGroup } = useGroupActions(group, currentUserId);
+  const { handleUpdateChallenge, handleDeleteChallenge, handleNudge } = useChallengeActions(
+    currentUserNickname,
+    channelRef  // ✅ 기존 채널 ref를 hook에 전달
+  );
+
+  // ✅ 앱 진입 시 미읽 nudge 알림 불러와서 팝업 표시
+  useEffect(() => {
+    const loadPendingNudges = async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .eq('type', 'nudge')
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error || !data || data.length === 0) return;
+
+      const latest = data[0];
+
+      // 알림에서 발신자 닉네임 파싱 ("OOO님이 재촉했습니다! 🥊")
+      const match = latest.message?.match(/^(.+?)님이/);
+      const sender = match ? match[1] : '누군가';
+
+      setNudgeData({ sender });
+      setTimeout(() => setNudgeData(null), 3000);
+
+      // 읽음 처리
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', currentUserId)
+        .eq('type', 'nudge')
+        .eq('is_read', false);
+    };
+
+    loadPendingNudges();
+  }, [currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ✅ 실시간 채널 구독 — ref에 저장해서 hook과 공유
   useEffect(() => {
     const channel = supabase
       .channel(`group-changes-${group.id}`)
@@ -57,10 +99,18 @@ export default function GroupDetailClient({
           .order('created_at', { ascending: false });
         if (data) setChallenges(data);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // ✅ 구독 완료 후 ref에 저장 → hook에서 이 채널로 send()
+          channelRef.current = channel;
+        }
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [group.id, currentUserId, supabase]);
+    return () => {
+      channelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [group.id, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const challengesWithProgress = challenges.map((challenge: any) => {
     const now = new Date();
@@ -81,10 +131,17 @@ export default function GroupDetailClient({
     <div className="pb-20 bg-gray-50 min-h-screen relative">
       <AnimatePresence>
         {nudgeData && (
-          <motion.div initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+          >
             <div className="bg-white/80 backdrop-blur-md p-10 rounded-[50px] shadow-2xl border-4 border-amber-400 flex flex-col items-center">
               <span className="text-9xl mb-4">👀</span>
-              <p className="text-xl font-black text-gray-900 text-center">{nudgeData.sender}님이<br />지켜보고 있다!</p>
+              <p className="text-xl font-black text-gray-900 text-center">
+                {nudgeData.sender}님이<br />지켜보고 있다!
+              </p>
             </div>
           </motion.div>
         )}
@@ -102,10 +159,22 @@ export default function GroupDetailClient({
           <TeamCalendar verifications={verifications} memberCount={memberCount} />
         </div>
         <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="font-bold text-gray-800 text-sm">진행 중인 도전 <span className="ml-1 text-blue-500">{challenges.length}</span></h3>
-          <Link href={`/groups/${group.id}/challenges/new`} className="text-blue-600 font-bold text-xs">+ 새 도전 만들기</Link>
+          <h3 className="font-bold text-gray-800 text-sm">
+            진행 중인 도전 <span className="ml-1 text-blue-500">{challenges.length}</span>
+          </h3>
+          <Link href={`/groups/${group.id}/challenges/new`} className="text-blue-600 font-bold text-xs">
+            + 새 도전 만들기
+          </Link>
         </div>
-        <ChallengeList challenges={challengesWithProgress} isOwner={isOwner} currentUserId={currentUserId} onUpdate={handleUpdateChallenge} onDelete={handleDeleteChallenge} onNudge={handleNudge} groupId={group.id} />
+        <ChallengeList
+          challenges={challengesWithProgress}
+          isOwner={isOwner}
+          currentUserId={currentUserId}
+          onUpdate={handleUpdateChallenge}
+          onDelete={handleDeleteChallenge}
+          onNudge={handleNudge}
+          groupId={group.id}
+        />
       </section>
 
       <section className="px-6 space-y-10">
