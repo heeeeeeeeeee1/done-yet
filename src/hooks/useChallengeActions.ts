@@ -3,13 +3,13 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { triggerStrongVibration } from '@/lib/native-bridge';
-import type { MutableRefObject } from 'react';
+import type { RefObject } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export const useChallengeActions = (
   nickname: string,
   // ✅ GroupDetailClient가 이미 구독 중인 채널 ref를 받아서 재사용
-  channelRef?: MutableRefObject<RealtimeChannel | null>
+  channelRef?: RefObject<RealtimeChannel | null>
 ) => {
   const router = useRouter();
   const supabase = createClient();
