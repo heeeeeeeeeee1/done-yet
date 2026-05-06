@@ -105,6 +105,7 @@ export const useChallengeActions = (
     const channel = channelRef?.current;
 
     try {
+      // 1. 실시간 팝업 (앱/웹이 열려 있을 때)
       if (channel) {
         await channel.send({
           type: 'broadcast',
@@ -115,6 +116,7 @@ export const useChallengeActions = (
         console.warn('[handleNudge] 채널 미준비 — DB 알림만 저장합니다.');
       }
 
+      // 2. DB 저장 (앱 재진입 시 팝업용)
       const { error: dbError } = await supabase.from('notifications').insert({
         user_id: targetUserId,
         group_id: groupId,
@@ -124,6 +126,13 @@ export const useChallengeActions = (
       });
 
       if (dbError) console.error('[handleNudge] DB 저장 실패:', dbError);
+
+      // 3. 푸시 알림 (앱이 닫혀 있어도 알림 전송)
+      fetch('/api/nudge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId, senderNickname: nickname }),
+      }).catch((err) => console.error('[handleNudge] 푸시 알림 실패:', err));
 
       toast.success(`${targetNickname}님에게 재촉하기를 보냈어요! 🥊`, {
         duration: 1000,

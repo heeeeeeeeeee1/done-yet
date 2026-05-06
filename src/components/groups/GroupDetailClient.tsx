@@ -199,7 +199,6 @@ export default function GroupDetailClient({
 
         <ChallengeList
           challenges={challengesWithProgress}
-          isOwner={isOwner}
           currentUserId={currentUserId}
           onDelete={handleDeleteChallenge}
           onNudge={handleNudge}
