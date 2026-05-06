@@ -3,11 +3,10 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { sendPushNotification, triggerFeedbackVibration } from '@/lib/native-bridge';
+import { triggerFeedbackVibration } from '@/lib/native-bridge';
 
 interface ChallengeListProps {
   challenges: any[];
-  isOwner: boolean;
   currentUserId: string;
   // ✅ challengeOwnerId, currentUserId 추가 (2차 방어용)
   onDelete: (id: string, groupId: string, title: string, challengeOwnerId: string, currentUserId: string) => void;
@@ -17,7 +16,6 @@ interface ChallengeListProps {
 
 export default function ChallengeList({
   challenges,
-  isOwner,
   currentUserId,
   onDelete,
   onNudge,
@@ -35,11 +33,6 @@ export default function ChallengeList({
 
         const handleNudgeClick = () => {
           onNudge(c.user_id, displayName, groupId);
-          sendPushNotification(
-            c.user_id,
-            '🥊 빨리 하라고!!',
-            `${displayName}님, 팀원이 당신의 인증을 기다리고 있어요!`
-          );
           triggerFeedbackVibration();
         };
 
